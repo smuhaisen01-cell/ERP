@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["python312", "postgresql"]
+
+[phases.install]
+cmds = ["pip install -r requirements.txt"]
+
+[phases.build]
+cmds = ["python manage.py collectstatic --noinput 2>/dev/null || true"]
+
+[start]
+cmd = "python manage.py migrate_schemas --shared && python manage.py migrate_schemas && daphne -b 0.0.0.0 -p $PORT erp_system.asgi:application"
