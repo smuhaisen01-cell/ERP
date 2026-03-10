@@ -23,4 +23,11 @@ RUN mkdir -p staticfiles media
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "python manage.py migrate_schemas --shared && python manage.py migrate_schemas && python manage.py collectstatic --noinput && daphne -b 0.0.0.0 -p ${PORT:-8000} erp_system.asgi:application"]
+# migrate_schemas --shared creates the public schema tables (including tenants_tenant).
+# migrate_schemas (without --shared) then migrates all tenant schemas.
+# Both must succeed before daphne starts.
+CMD ["sh", "-c", \
+  "python manage.py migrate_schemas --shared && \
+   python manage.py migrate_schemas && \
+   python manage.py collectstatic --noinput && \
+   daphne -b 0.0.0.0 -p ${PORT:-8000} erp_system.asgi:application"]

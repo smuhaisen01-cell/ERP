@@ -5,7 +5,7 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "sh -c \"python manage.py migrate_schemas --shared && python manage.py migrate_schemas && python manage.py collectstatic --noinput && daphne -b 0.0.0.0 -p ${PORT:-8000} erp_system.asgi:application\"",
+    "startCommand": "sh -c 'python manage.py migrate_schemas --shared && python manage.py migrate_schemas && python manage.py collectstatic --noinput && daphne -b 0.0.0.0 -p ${PORT:-8000} erp_system.asgi:application'",
     "healthcheckPath": "/app/health/",
     "healthcheckTimeout": 60,
     "restartPolicyType": "ON_FAILURE",
