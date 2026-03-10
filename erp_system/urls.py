@@ -2,19 +2,35 @@ from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
 from django.utils import timezone
+import django.db
 
 
 def health_check(request):
+    """
+    Health endpoint for Railway / load balancers.
+    Must respond 200 even when called with no subdomain (raw IP).
+    Checks DB connectivity to give a real signal.
+    """
+    try:
+        django.db.connection.ensure_connection()
+        db_ok = True
+    except Exception:
+        db_ok = False
+
+    status = "ok" if db_ok else "degraded"
+    code = 200 if db_ok else 503
     return JsonResponse({
-        "status": "ok",
+        "status": status,
         "timestamp": timezone.now().isoformat(),
         "service": "erp-core",
-    })
+        "db": "ok" if db_ok else "error",
+    }, status=code)
 
 
 urlpatterns = [
-    # Health check — used by Docker, load balancers, ZATCA monitoring
+    # Health check — Railway probes this; must be BEFORE any auth/tenant middleware
     path("app/health/", health_check, name="health"),
+    path("health/", health_check, name="health_root"),  # fallback path
 
     # Admin
     path("admin/", admin.site.urls),

@@ -21,7 +21,12 @@ environ.Env.read_env(BASE_DIR / ".env")
 # ─── Core ─────────────────────────────────────────────────────────────────────
 SECRET_KEY = env("SECRET_KEY")
 DEBUG = env("DEBUG")
-ALLOWED_HOSTS = env("ALLOWED_HOSTS")
+_allowed = env("ALLOWED_HOSTS")
+# Railway internal health-check IPs + common hosts — always allowed
+ALLOWED_HOSTS = _allowed + ["localhost", "127.0.0.1", ".railway.app", ".up.railway.app"]
+# In production Railway sets PORT env var — also accept the raw hostname from probes
+if env("ENVIRONMENT", default="") in ("production", "testing"):
+    ALLOWED_HOSTS.append("*")  # Railway's internal probe uses direct IP; Django checks host
 ENVIRONMENT = env("ENVIRONMENT")
 
 # ─── Saudi / ZATCA Constants ──────────────────────────────────────────────────
@@ -170,7 +175,7 @@ LOCALE_PATHS = [BASE_DIR / "locale"]
 
 # ─── Middleware ───────────────────────────────────────────────────────────────
 MIDDLEWARE = [
-    "django_tenants.middleware.main.TenantMainMiddleware",  # MUST be first
+    "apps.tenants.middleware.ERPTenantMiddleware",  # Custom: falls back to public schema
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",

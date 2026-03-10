@@ -1,7 +1,13 @@
 """Production settings — inherits base, adds security hardening."""
 from .settings import *  # noqa
+import os
 
 DEBUG = False
+
+# Railway's internal health prober hits the container directly via its internal IP.
+# We rely on Cloudflare + Railway's edge for actual host validation — safe to use *.
+# This can be restricted to specific domains once a custom domain is configured.
+ALLOWED_HOSTS = ["*"]
 
 # ─── Security ─────────────────────────────────────────────────────────────────
 SECURE_SSL_REDIRECT = True

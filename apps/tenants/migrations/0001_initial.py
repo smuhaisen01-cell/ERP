@@ -14,6 +14,7 @@ class Migration(migrations.Migration):
             name='Tenant',
             fields=[
                 ('schema_name', models.CharField(db_index=True, max_length=63, serialize=False, primary_key=True)),
+                # TenantMixin provides: created_on, paid_until, on_trial — do NOT re-declare
                 ('name_ar', models.CharField(max_length=255, verbose_name='اسم الشركة (عربي)')),
                 ('name_en', models.CharField(max_length=255, verbose_name='Company Name (English)')),
                 ('vat_number', models.CharField(help_text='15-digit Saudi VAT registration number', max_length=15, unique=True, verbose_name='رقم تسجيل ضريبة القيمة المضافة')),
@@ -26,10 +27,10 @@ class Migration(migrations.Migration):
                 ('max_invoices_per_month', models.PositiveIntegerField(default=300)),
                 ('max_pos_terminals', models.PositiveIntegerField(default=1)),
                 ('zatca_environment', models.CharField(choices=[('sandbox', 'Sandbox (Testing)'), ('simulation', 'Simulation'), ('production', 'Production')], default='sandbox', max_length=15)),
+                ('zatca_onboarded', models.BooleanField(default=False)),
                 ('is_active', models.BooleanField(default=True)),
-                ('created_on', models.DateField(auto_now_add=True)),
-                ('paid_until', models.DateField(blank=True, null=True)),
-                ('on_trial', models.BooleanField(default=True)),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('updated_at', models.DateTimeField(auto_now=True)),
             ],
             options={
                 'verbose_name': 'مستأجر',
