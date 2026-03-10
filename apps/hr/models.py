@@ -24,7 +24,7 @@ class Department(models.Model):
     name_ar = models.CharField("اسم القسم (عربي)", max_length=100)
     name_en = models.CharField("Department Name (English)", max_length=100)
     cost_center = models.CharField(max_length=20, blank=True)
-    manager = models.ForeignKey("Employee", null=True, blank=True, on_delete=models.SET_NULL)
+    manager = models.ForeignKey("Employee", null=True, blank=True, on_delete=models.SET_NULL, related_name="managed_departments")
 
     class Meta:
         verbose_name = "قسم"
