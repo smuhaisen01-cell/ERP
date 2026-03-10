@@ -1,4 +1,20 @@
-FROM python:3.12-slim
+# ============================================================
+# Stage 1: Build React SPA
+# ============================================================
+FROM node:20-alpine AS frontend-builder
+
+WORKDIR /frontend
+
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN npm ci --prefer-offline 2>/dev/null || npm install
+
+COPY frontend/ .
+RUN npm run build
+
+# ============================================================
+# Stage 2: Django production image
+# ============================================================
+FROM python:3.12-slim AS production
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -19,15 +35,23 @@ COPY erp_system/ ./erp_system/
 COPY apps/ ./apps/
 COPY scripts/ ./scripts/
 
-RUN mkdir -p staticfiles media
+# Copy React build output into Django's static directory
+# Django's collectstatic will pick this up via STATICFILES_DIRS
+RUN mkdir -p static/spa staticfiles media
+COPY --from=frontend-builder /frontend/dist/ ./static/spa/
 
 EXPOSE 8000
 
-# migrate_schemas --shared creates the public schema tables (including tenants_tenant).
-# migrate_schemas (without --shared) then migrates all tenant schemas.
-# Both must succeed before daphne starts.
 CMD ["sh", "-c", \
   "python manage.py migrate_schemas --shared && \
    python manage.py migrate_schemas && \
    python manage.py collectstatic --noinput && \
    daphne -b 0.0.0.0 -p ${PORT:-8000} erp_system.asgi:application"]
+
+# ============================================================
+# Stage 3: Development image (hot-reload, no build step)
+# ============================================================
+FROM production AS development
+
+ENV DEBUG=True
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
