@@ -4,13 +4,16 @@ import os
 
 DEBUG = False
 
-# Railway's internal health prober hits the container directly via its internal IP.
-# We rely on Cloudflare + Railway's edge for actual host validation — safe to use *.
-# This can be restricted to specific domains once a custom domain is configured.
+# Railway's internal health prober hits containers directly via internal IP over plain HTTP.
+# We rely on Cloudflare + Railway's edge for host validation — safe to wildcard here.
 ALLOWED_HOSTS = ["*"]
 
 # ─── Security ─────────────────────────────────────────────────────────────────
-SECURE_SSL_REDIRECT = True
+# Railway terminates TLS at the edge. Internal container traffic is plain HTTP.
+# SECURE_SSL_REDIRECT=True causes 301 redirect loops on the health prober.
+# Real HTTPS enforcement is handled by Railway's edge + Cloudflare.
+SECURE_SSL_REDIRECT = False
+
 SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
