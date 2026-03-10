@@ -1,19 +1,21 @@
 """
 Custom tenant middleware.
-Falls back to the 'public' schema for:
-  - Health check endpoints
-  - Admin
-  - Static files
-  - Any request that can't be matched to a tenant domain
 
-This prevents 404/500 errors on Railway health checks and direct IP access.
+Key behaviour:
+- Health check + admin + static paths → set schema to public WITHOUT any DB query.
+  This is critical: Railway's health prober hits the container before any tenant
+  exists in the DB, so any ORM query will fail on first deploy.
+- All other paths → delegate to TenantMainMiddleware (subdomain resolution).
+- Unknown domains → fall back to public schema instead of raising 404.
 """
 from django.db import connection
 from django_tenants.middleware.main import TenantMainMiddleware
 from django_tenants.utils import get_public_schema_name
 
 
-EXEMPT_PATHS = (
+# Paths that must NEVER trigger a DB query for tenant resolution.
+# Health check must work even when the DB is empty (first deploy).
+BYPASS_PATHS = (
     "/app/health/",
     "/health/",
     "/admin/",
@@ -25,32 +27,44 @@ EXEMPT_PATHS = (
 
 class ERPTenantMiddleware(TenantMainMiddleware):
     """
-    Extends TenantMainMiddleware to handle:
-    1. Health-check / admin paths → always use public schema
-    2. Unknown domains → fall back to public schema instead of raising 404
+    Extends TenantMainMiddleware with two safety behaviours:
+    1. Exempt paths get the public schema without ANY database query.
+    2. Unknown tenant domains fall back to public schema (no 404 crash).
     """
 
     def process_request(self, request):
-        # Fast-path: exempt paths always get public schema
         path = request.path_info
-        if any(path.startswith(p) for p in EXEMPT_PATHS):
-            connection.set_schema_to_public()
-            from django_tenants.utils import get_tenant_model
-            TenantModel = get_tenant_model()
-            try:
-                tenant = TenantModel.objects.get(
-                    schema_name=get_public_schema_name()
-                )
-                request.tenant = tenant
-            except TenantModel.DoesNotExist:
-                # Public tenant not created yet — still serve health check
-                connection.set_schema_to_public()
-                return None
-            return None
 
+        # ── Fast path: bypass tenant resolution entirely ──────────────────
+        if any(path.startswith(p) for p in BYPASS_PATHS):
+            # Set schema to public at the DB connection level — no ORM query.
+            connection.set_schema_to_public()
+            # Attach a minimal fake tenant object so downstream code doesn't crash
+            # when it tries to read request.tenant.
+            request.tenant = _PublicTenantProxy()
+            return None  # Continue to next middleware
+
+        # ── Normal path: let TenantMainMiddleware do subdomain lookup ─────
         try:
             return super().process_request(request)
         except self.TENANT_NOT_FOUND_EXCEPTION:
-            # Unknown subdomain → fall back to public schema
+            # Unknown subdomain → serve public schema (API discovery, etc.)
             connection.set_schema_to_public()
+            request.tenant = _PublicTenantProxy()
             return None
+
+
+class _PublicTenantProxy:
+    """
+    Minimal stand-in for a Tenant object when no real tenant is resolved.
+    Prevents AttributeError on request.tenant.schema_name etc.
+    """
+    schema_name = "public"
+    name_ar = "Public"
+    name_en = "Public"
+    vat_number = ""
+    plan = "starter"
+    is_active = True
+
+    def __str__(self):
+        return "public"
