@@ -29,12 +29,13 @@ def health_check(request):
 
 urlpatterns = [
     # Health check — Railway probes this; must be BEFORE any auth/tenant middleware
+     path("debug/", debug_static),
     path("app/health/", health_check, name="health"),
     path("health/", health_check, name="health_root"),  # fallback path
 
     # Admin
     path("admin/", admin.site.urls),
-    path("debug/", debug_static),
+   
     # Authentication (allauth)
     path("accounts/", include("allauth.urls")),
 
