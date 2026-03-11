@@ -23,6 +23,10 @@ BYPASS_PATHS = (
     "/accounts/",
     "/favicon.ico",
     "/app/", 
+    "/favicon.svg",
+    "/assets/",     # ← ADD THIS
+    "/api/",
+
 )
 
 
