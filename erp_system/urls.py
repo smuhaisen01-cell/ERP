@@ -34,7 +34,7 @@ urlpatterns = [
 
     # Admin
     path("admin/", admin.site.urls),
-
+    path("debug/", debug_static),
     # Authentication (allauth)
     path("accounts/", include("allauth.urls")),
 
@@ -56,3 +56,13 @@ urlpatterns = [
     # Frontend SPA catch-all (React)
     path("app/", include("apps.tenants.spa_urls")),
 ]
+from django.http import JsonResponse
+import os
+
+def debug_static(request):
+    spa = '/app/static/spa/'
+    staticfiles = '/app/staticfiles/spa/'
+    return JsonResponse({
+        'static_spa': os.listdir(spa) if os.path.exists(spa) else 'MISSING',
+        'staticfiles_spa': os.listdir(staticfiles) if os.path.exists(staticfiles) else 'MISSING',
+    })
