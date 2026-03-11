@@ -18,7 +18,7 @@ export default function App() {
   return (
     <LangProvider>
       <AuthProvider>
-        <BrowserRouter>
+        <BrowserRouter basename="/app">
           <Routes>
             <Route path="/app/login" element={<LoginPage />} />
             <Route path="/app/*" element={

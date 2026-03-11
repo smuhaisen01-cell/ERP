@@ -7,10 +7,11 @@ export default defineConfig({
   resolve: {
     alias: { '@': path.resolve(__dirname, './src') }
   },
-build: {
-  outDir: 'dist',   // was '../deploy_package/static/spa'
-  emptyOutDir: true,
-},
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+  },
+  base: '/static/spa/',
   server: {
     proxy: {
       '/api': 'http://localhost:8000',
