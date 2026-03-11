@@ -111,20 +111,25 @@ class Employee(models.Model):
     def calculate_eosb(self) -> Decimal:
         """
         Calculate End of Service Benefit (مكافأة نهاية الخدمة).
-        Saudi Labour Law: 1/3 of monthly salary per year for first 5 years,
-        full monthly salary per year thereafter.
+        Saudi Labour Law Art. 84:
+        - < 2 years service: no EOSB
+        - 2–5 years: 1/3 of monthly salary per year (resignation)
+        - > 5 years: 1/3 for first 5 + full monthly per year after
+        For termination by employer: 1/2 salary for first 5 years, full after.
         """
         from datetime import date
         end_date = self.termination_date or date.today()
-        years = (end_date - self.hire_date).days / 365.25
+        years = Decimal(str(round((end_date - self.hire_date).days / 365.25, 2)))
 
         if years < 2:
             return Decimal("0")  # No EOSB for < 2 years service
         elif years <= 5:
-            return self.basic_salary * Decimal(str(round(years, 2))) * Decimal("1/3")
+            # 1/3 of monthly salary per year of service
+            return self.basic_salary * years * Decimal("1") / Decimal("3")
         else:
-            first_5 = self.basic_salary * Decimal("5") * Decimal("1/3")
-            remaining = self.basic_salary * Decimal(str(round(years - 5, 2)))
+            # First 5 years at 1/3 rate + remaining years at full rate
+            first_5 = self.basic_salary * Decimal("5") * Decimal("1") / Decimal("3")
+            remaining = self.basic_salary * (years - Decimal("5"))
             return first_5 + remaining
 
 

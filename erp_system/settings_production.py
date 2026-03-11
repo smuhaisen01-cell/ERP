@@ -4,14 +4,14 @@ import os
 
 DEBUG = False
 
-# Railway's internal health prober hits containers directly via internal IP over plain HTTP.
-# We rely on Cloudflare + Railway's edge for host validation — safe to wildcard here.
-ALLOWED_HOSTS = ["*"]
-
 # ─── Security ─────────────────────────────────────────────────────────────────
-# Railway terminates TLS at the edge. Internal container traffic is plain HTTP.
-# SECURE_SSL_REDIRECT=True causes 301 redirect loops on the health prober.
-# Real HTTPS enforcement is handled by Railway's edge + Cloudflare.
+# ALLOWED_HOSTS is set by base settings from env var.
+# Railway health probes use the container's internal hostname which is already
+# covered by ".railway.app" in base settings. Never use ["*"] in production.
+# To add your custom domain: ALLOWED_HOSTS=yourdomain.sa,www.yourdomain.sa
+
+# Railway terminates TLS at the edge. SECURE_SSL_REDIRECT=True causes redirect
+# loops on the health prober. Real HTTPS enforcement is via Railway edge + Cloudflare.
 SECURE_SSL_REDIRECT = False
 
 SECURE_HSTS_SECONDS = 31536000
@@ -22,6 +22,23 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 X_FRAME_OPTIONS = "DENY"
 SECURE_CONTENT_TYPE_NOSNIFF = True
+
+# ─── CORS (production) ───────────────────────────────────────────────────────
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
+
+# ─── Sentry ──────────────────────────────────────────────────────────────────
+SENTRY_DSN = env("SENTRY_DSN", default="")
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+    from sentry_sdk.integrations.celery import CeleryIntegration
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration(), CeleryIntegration()],
+        traces_sample_rate=0.1,
+        send_default_pii=False,
+        environment="production",
+    )
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
 LOGGING = {

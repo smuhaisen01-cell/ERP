@@ -22,11 +22,8 @@ environ.Env.read_env(BASE_DIR / ".env")
 SECRET_KEY = env("SECRET_KEY")
 DEBUG = env("DEBUG")
 _allowed = env("ALLOWED_HOSTS")
-# Railway internal health-check IPs + common hosts — always allowed
+# Railway health-check probes + common dev hosts
 ALLOWED_HOSTS = _allowed + ["localhost", "127.0.0.1", ".railway.app", ".up.railway.app"]
-# In production Railway sets PORT env var — also accept the raw hostname from probes
-if env("ENVIRONMENT", default="") in ("production", "testing"):
-    ALLOWED_HOSTS.append("*")  # Railway's internal probe uses direct IP; Django checks host
 ENVIRONMENT = env("ENVIRONMENT")
 
 # ─── Saudi / ZATCA Constants ──────────────────────────────────────────────────
@@ -43,6 +40,7 @@ ZATCA_ENCRYPTION_KEY = env("ZATCA_ENCRYPTION_KEY", default="")
 
 # ─── Multi-Tenancy (django-tenants) ───────────────────────────────────────────
 SHARED_APPS = [
+    "daphne",            # ASGI server — must be before django.contrib.staticfiles
     "django_tenants",
     "django.contrib.contenttypes",
 
@@ -62,6 +60,7 @@ SHARED_APPS = [
     "rest_framework",
     "corsheaders",
     "django_filters",
+    "channels",
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
@@ -175,7 +174,7 @@ LOCALE_PATHS = [BASE_DIR / "locale"]
 
 # ─── Middleware ───────────────────────────────────────────────────────────────
 MIDDLEWARE = [
-   # "apps.tenants.middleware.ERPTenantMiddleware",  # Custom: falls back to public schema
+    "apps.tenants.middleware.ERPTenantMiddleware",  # MUST be first — resolves tenant from subdomain
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -236,7 +235,23 @@ REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.UserRateThrottle",
+        "rest_framework.throttling.AnonRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "user": "300/minute",
+        "anon": "30/minute",
+    },
 }
+
+# ─── CORS ─────────────────────────────────────────────────────────────────────
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[
+    "http://localhost:5173",    # Vite dev server
+    "http://localhost:8000",
+    "http://127.0.0.1:5173",
+])
+CORS_ALLOW_CREDENTIALS = True
 
 # ─── Authentication ───────────────────────────────────────────────────────────
 AUTHENTICATION_BACKENDS = [

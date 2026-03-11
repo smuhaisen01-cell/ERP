@@ -124,24 +124,37 @@ class FatooraService:
         """
         Generate ZATCA TLV QR code (Base64 encoded).
         Tags: 1=Seller, 2=VAT, 3=Timestamp, 4=Total, 5=VAT, 6=Hash, 7=CSID, 8=Signature
+        IMPORTANT: Tags 7 and 8 must contain the FULL values — no truncation.
         """
-        def tlv_tag(tag: int, value: str) -> bytes:
-            encoded = value.encode("utf-8")
-            return bytes([tag, len(encoded)]) + encoded
+        def tlv_tag(tag: int, value: bytes) -> bytes:
+            """Build a TLV tag. Supports values > 255 bytes via multi-byte length."""
+            length = len(value)
+            if length <= 127:
+                return bytes([tag, length]) + value
+            else:
+                # Multi-byte length encoding for large values
+                len_bytes = length.to_bytes((length.bit_length() + 7) // 8, "big")
+                return bytes([tag, 0x80 | len(len_bytes)]) + len_bytes + value
 
         from apps.tenants.models import Tenant
-        # Get tenant info for seller name
-        seller_name = self.tenant_schema  # Fallback
+        # Get tenant info for seller name and VAT number
+        try:
+            tenant = Tenant.objects.get(schema_name=self.tenant_schema)
+            seller_name = tenant.name_ar
+            vat_number = tenant.vat_number
+        except Tenant.DoesNotExist:
+            seller_name = self.tenant_schema
+            vat_number = self.tenant_schema.replace("t_", "")
 
         tlv = b""
-        tlv += tlv_tag(1, seller_name)
-        tlv += tlv_tag(2, self.credential.tenant_schema)  # VAT number
-        tlv += tlv_tag(3, datetime.now(tz=tz.utc).isoformat())
-        tlv += tlv_tag(4, str(invoice.total_amount))
-        tlv += tlv_tag(5, str(invoice.vat_amount))
-        tlv += tlv_tag(6, invoice_hash)
-        tlv += tlv_tag(7, self.credential.binary_security_token[:50])
-        tlv += tlv_tag(8, signature_b64[:50])
+        tlv += tlv_tag(1, seller_name.encode("utf-8"))
+        tlv += tlv_tag(2, vat_number.encode("utf-8"))  # Fix: actual VAT number, not schema name
+        tlv += tlv_tag(3, datetime.now(tz=tz.utc).isoformat().encode("utf-8"))
+        tlv += tlv_tag(4, str(invoice.total_amount).encode("utf-8"))
+        tlv += tlv_tag(5, str(invoice.vat_amount).encode("utf-8"))
+        tlv += tlv_tag(6, invoice_hash.encode("utf-8"))
+        tlv += tlv_tag(7, self.credential.binary_security_token.encode("utf-8"))  # Fix: FULL BST
+        tlv += tlv_tag(8, signature_b64.encode("utf-8"))  # Fix: FULL signature
 
         return base64.b64encode(tlv).decode()
 
@@ -149,6 +162,11 @@ class FatooraService:
         """
         Full pipeline: build XML → hash → sign → QR code → save.
         Call this before submitting to ZATCA.
+
+        IMPORTANT: Callers must hold a chain lock (e.g., SELECT FOR UPDATE on
+        ZATCAInvoiceLog or a Redis SETNX lock) to prevent concurrent calls from
+        producing the same previous_hash, which would fork the invoice chain.
+        The ZATCA ViewSet handles this locking.
         """
         previous_hash = self.get_previous_hash()
         xml_bytes = self.build_ubl_xml(invoice)
@@ -169,6 +187,21 @@ class FatooraService:
         invoice.qr_code_tlv = qr_tlv
         invoice.signed_xml = signed_xml.decode("utf-8")
         invoice.save()
+
+        # Write audit log entry immediately (within the same transaction/lock)
+        ZATCAInvoiceLog.objects.create(
+            tenant_schema=self.tenant_schema,
+            invoice_uuid=invoice.uuid,
+            invoice_number=invoice.invoice_number,
+            invoice_type=invoice.invoice_type,
+            invoice_hash=invoice_hash,
+            previous_hash=previous_hash,
+            total_amount=invoice.total_amount,
+            vat_amount=invoice.vat_amount,
+            zatca_status=invoice.zatca_status,
+            zatca_response_code="",
+            environment=self.credential.environment,
+        )
 
         return invoice
 

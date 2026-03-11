@@ -1,0 +1,60 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*.egg-info
+.eggs
+dist
+build
+.venv
+venv
+env
+.pytest_cache
+htmlcov
+.coverage
+
+# Node (frontend has its own COPY step)
+frontend/node_modules
+
+# Environment / Secrets
+.env
+.env.*
+*.pem
+*.pfx
+*.p12
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose*.yml
+Dockerfile.dev
+
+# Deployment configs (not needed inside container)
+fly.toml
+render.yaml
+nixpacks.toml
+
+# Documentation
+*.md
+docs/
+
+# Backups
+backups/
+
+# Media (mounted as volume)
+media/
+
+# Database
+*.sqlite3
+db.sqlite3
