@@ -3,7 +3,6 @@ from django.urls import path, include
 from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
 import django.db
-import os
 import pathlib
 
 
@@ -26,11 +25,8 @@ def health_check(request):
 def debug_static(request):
     p = pathlib.Path('/app/staticfiles/spa/index.html')
     if p.exists():
-        return HttpResponse(f'<pre>{p.read_text()[:3000]}</pre>')
-    p2 = pathlib.Path('/app/static/spa/index.html')
-    if p2.exists():
-        return HttpResponse(f'<pre>FROM static/spa:<br>{p2.read_text()[:3000]}</pre>')
-    return HttpResponse('NEITHER staticfiles/spa NOR static/spa has index.html')
+        return HttpResponse('<pre>' + p.read_text()[:3000] + '</pre>')
+    return HttpResponse('NOT FOUND')
 
 
 urlpatterns = [
@@ -49,5 +45,4 @@ urlpatterns = [
     path("ai/",                include("apps.ai.urls")),
     path("api/v1/billing/",    include("apps.billing.urls")),
     path("app/", include("apps.tenants.spa_urls")),
-    path("", lambda req: __import__("django.shortcuts", fromlist=["redirect"]).redirect("/app/")),
 ]
