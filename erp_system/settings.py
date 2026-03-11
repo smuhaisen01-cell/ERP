@@ -175,7 +175,7 @@ LOCALE_PATHS = [BASE_DIR / "locale"]
 
 # ─── Middleware ───────────────────────────────────────────────────────────────
 MIDDLEWARE = [
-    "apps.tenants.middleware.ERPTenantMiddleware",  # Custom: falls back to public schema
+   # "apps.tenants.middleware.ERPTenantMiddleware",  # Custom: falls back to public schema
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
