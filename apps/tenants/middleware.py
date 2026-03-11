@@ -22,6 +22,7 @@ BYPASS_PATHS = (
     "/static/",
     "/accounts/",
     "/favicon.ico",
+    "/app/", 
 )
 
 
