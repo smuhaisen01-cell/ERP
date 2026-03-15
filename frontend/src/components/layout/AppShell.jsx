@@ -79,7 +79,7 @@ function Sidebar({ open, onClose }) {
             <span>{lang === 'ar' ? 'English' : 'العربية'}</span>
           </button>
 
-          <button className="nav-item w-full text-start">
+          <button onClick={() => { navigate('/settings'); onClose() }} className="nav-item w-full text-start">
             <Settings size={18} />
             <span>{t('settings')}</span>
           </button>

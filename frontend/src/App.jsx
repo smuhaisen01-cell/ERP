@@ -11,6 +11,8 @@ import HRPage from './pages/hr/HRPage'
 import AccountingPage from './pages/accounting/AccountingPage'
 import InventoryPage from './pages/inventory/InventoryPage'
 
+import SettingsPage from './pages/settings/SettingsPage'
+
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuth()
   return isAuthenticated ? children : <Navigate to="/login" replace />
@@ -34,6 +36,7 @@ export default function App() {
                     <Route path="hr/*" element={<HRPage />} />
                     <Route path="accounting/*" element={<AccountingPage />} />
                     <Route path="inventory/*" element={<InventoryPage />} />
+                    <Route path="settings" element={<SettingsPage />} />
                   </Routes>
                 </AppShell>
               </ProtectedRoute>
