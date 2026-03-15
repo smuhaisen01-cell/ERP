@@ -1,4 +1,3 @@
-cat > railway.json << 'EOF'
 {
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
@@ -13,4 +12,3 @@ cat > railway.json << 'EOF'
     "restartPolicyMaxRetries": 3
   }
 }
-EOF
