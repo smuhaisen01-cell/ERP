@@ -9,12 +9,12 @@ import { useLang } from '../../contexts/LangContext'
 import { useAuth } from '../../contexts/AuthContext'
 
 const NAV = [
-  { key: 'dashboard',  icon: LayoutDashboard, path: '/app/dashboard' },
-  { key: 'invoicing',  icon: FileText,         path: '/app/invoicing' },
-  { key: 'pos',        icon: ShoppingCart,      path: '/app/pos' },
-  { key: 'hr',         icon: Users,             path: '/app/hr' },
-  { key: 'accounting', icon: BookOpen,          path: '/app/accounting' },
-  { key: 'inventory',  icon: Package,           path: '/app/inventory' },
+  { key: 'dashboard',  icon: LayoutDashboard, path: '/dashboard' },
+  { key: 'invoicing',  icon: FileText,         path: '/invoicing' },
+  { key: 'pos',        icon: ShoppingCart,      path: '/pos' },
+  { key: 'hr',         icon: Users,             path: '/hr' },
+  { key: 'accounting', icon: BookOpen,          path: '/accounting' },
+  { key: 'inventory',  icon: Package,           path: '/inventory' },
 ]
 
 function Sidebar({ open, onClose }) {
@@ -22,7 +22,7 @@ function Sidebar({ open, onClose }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
-  const handleLogout = () => { logout(); navigate('/app/login') }
+  const handleLogout = () => { logout(); navigate('/login') }
 
   return (
     <>

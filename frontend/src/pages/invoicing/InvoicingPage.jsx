@@ -1,171 +1,94 @@
-import { useState } from 'react'
-import { Plus, Search, Filter, Download, Eye, Send, FileText, CheckCircle2, Clock, XCircle, ChevronDown } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Plus, Search, Send, FileText, CheckCircle2, Clock, XCircle, Loader2, RefreshCw } from 'lucide-react'
 import { useLang } from '../../contexts/LangContext'
-
-const INVOICES = [
-  { id: 'INV-2024-0892', customer: 'شركة الأفق للتجارة', customerEn: 'Al-Ufuq Trading Co.', vat: '300012345678903', amount: 18500, vatAmt: 2775, total: 21275, type: 'B2B', status: 'cleared', date: '2024-01-15', due: '2024-02-14' },
-  { id: 'INV-2024-0891', customer: 'رياض للتجزئة', customerEn: 'Riyadh Retail', vat: '', amount: 340, vatAmt: 51, total: 391, type: 'B2C', status: 'reported', date: '2024-01-15', due: '2024-01-15' },
-  { id: 'INV-2024-0890', customer: 'مجموعة النخيل', customerEn: 'Al-Nakheel Group', vat: '300098765432109', amount: 42000, vatAmt: 6300, total: 48300, type: 'B2B', status: 'cleared', date: '2024-01-14', due: '2024-02-13' },
-  { id: 'INV-2024-0889', customer: 'Saudi Retail Solutions', customerEn: 'Saudi Retail Solutions', vat: '', amount: 3500, vatAmt: 525, total: 4025, type: 'B2C', status: 'draft', date: '2024-01-14', due: '2024-01-14' },
-  { id: 'INV-2024-0888', customer: 'شركة الرياض للخدمات', customerEn: 'Riyadh Services Co.', vat: '300055544433301', amount: 12750, vatAmt: 1912, total: 14662, type: 'B2B', status: 'pending_clearance', date: '2024-01-13', due: '2024-02-12' },
-  { id: 'INV-2024-0887', customer: 'النور للاستشارات', customerEn: 'Al-Noor Consulting', vat: '300011122233301', amount: 8900, vatAmt: 1335, total: 10235, type: 'B2B', status: 'rejected', date: '2024-01-12', due: '2024-02-11' },
-]
+import { useAuth } from '../../contexts/AuthContext'
+import { zatcaAPI } from '../../services/api'
+import toast from 'react-hot-toast'
 
 const STATUS_CONFIG = {
-  cleared:            { badge: 'badge-green',  labelAr: 'مُصفّاة',          labelEn: 'Cleared',           icon: CheckCircle2 },
-  reported:           { badge: 'badge-blue',   labelAr: 'مُبلَّغة',          labelEn: 'Reported',          icon: Send },
-  pending_clearance:  { badge: 'badge-yellow', labelAr: 'في انتظار التصفية', labelEn: 'Pending Clearance', icon: Clock },
-  draft:              { badge: 'badge-gray',   labelAr: 'مسودة',             labelEn: 'Draft',             icon: FileText },
-  rejected:           { badge: 'badge-red',    labelAr: 'مرفوضة',            labelEn: 'Rejected',          icon: XCircle },
+  cleared:  { bg: 'bg-green-100', text: 'text-green-700', labelAr: 'مُصفّاة', labelEn: 'Cleared', icon: CheckCircle2 },
+  reported: { bg: 'bg-blue-100',  text: 'text-blue-700',  labelAr: 'مُبلَّغة', labelEn: 'Reported', icon: Send },
+  pending:  { bg: 'bg-yellow-100',text: 'text-yellow-700',labelAr: 'معلقة',    labelEn: 'Pending',  icon: Clock },
+  error:    { bg: 'bg-red-100',   text: 'text-red-700',   labelAr: 'خطأ',      labelEn: 'Error',    icon: XCircle },
+  draft:    { bg: 'bg-slate-100', text: 'text-slate-600',  labelAr: 'مسودة',    labelEn: 'Draft',    icon: FileText },
 }
 
-function NewInvoiceModal({ onClose, lang, t }) {
-  const [lines, setLines] = useState([{ desc: '', qty: 1, price: 0 }])
-  const [type, setType] = useState('B2B')
+function NewInvoiceModal({ onClose, onSave, lang }) {
+  const [type, setType] = useState('388')
+  const [lines, setLines] = useState([{ description_ar: '', quantity: 1, unit_price: 0 }])
+  const [buyer, setBuyer] = useState({ buyer_name_ar: '', buyer_vat_number: '' })
 
-  const addLine = () => setLines(l => [...l, { desc: '', qty: 1, price: 0 }])
-  const subtotal = lines.reduce((s, l) => s + (l.qty * l.price), 0)
+  const addLine = () => setLines(l => [...l, { description_ar: '', quantity: 1, unit_price: 0 }])
+  const updateLine = (i, k, v) => setLines(l => l.map((line, idx) => idx === i ? { ...line, [k]: v } : line))
+
+  const subtotal = lines.reduce((s, l) => s + (l.quantity * l.unit_price), 0)
   const vat = subtotal * 0.15
   const total = subtotal + vat
 
-  const fmt = n => new Intl.NumberFormat('en-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+  const handleSave = () => {
+    const data = {
+      invoice_type: type,
+      issue_date: new Date().toISOString().split('T')[0],
+      issue_time: new Date().toTimeString().split(' ')[0],
+      ...buyer,
+      subtotal: subtotal.toFixed(2),
+      taxable_amount: subtotal.toFixed(2),
+      vat_amount: vat.toFixed(2),
+      total_amount: total.toFixed(2),
+      lines: lines.map(l => ({
+        description_ar: l.description_ar,
+        quantity: l.quantity,
+        unit_price: l.unit_price,
+        line_total: (l.quantity * l.unit_price).toFixed(2),
+        vat_rate: '15.00',
+        vat_amount: (l.quantity * l.unit_price * 0.15).toFixed(2),
+      })),
+    }
+    onSave(data)
+  }
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">
-              {lang === 'ar' ? 'فاتورة ضريبية جديدة' : 'New Tax Invoice'}
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">ZATCA Phase 2 — UBL 2.1</p>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl font-light">✕</button>
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <h2 className="text-xl font-bold">{lang === 'ar' ? 'فاتورة جديدة' : 'New Invoice'}</h2>
+
+        <div className="flex gap-3">
+          <button onClick={() => setType('388')} className={`flex-1 py-2 rounded-lg text-sm font-medium ${type === '388' ? 'bg-brand-500 text-white' : 'bg-slate-100'}`}>
+            B2B {lang === 'ar' ? '(ضريبية)' : '(Standard)'}
+          </button>
+          <button onClick={() => setType('386')} className={`flex-1 py-2 rounded-lg text-sm font-medium ${type === '386' ? 'bg-brand-500 text-white' : 'bg-slate-100'}`}>
+            B2C {lang === 'ar' ? '(مبسطة)' : '(Simplified)'}
+          </button>
         </div>
 
-        <div className="p-6 space-y-5">
-          {/* Invoice type */}
-          <div className="flex gap-2">
-            {['B2B', 'B2C'].map(t => (
-              <button key={t} onClick={() => setType(t)}
-                className={`flex-1 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all ${
-                  type === t
-                    ? 'border-brand-600 bg-brand-50 text-brand-700'
-                    : 'border-slate-200 text-slate-500 hover:border-slate-300'
-                }`}>
-                {t} — {t === 'B2B'
-                  ? (lang === 'ar' ? 'فاتورة ضريبية (يتطلب تصفية)' : 'Tax Invoice (requires clearance)')
-                  : (lang === 'ar' ? 'فاتورة مبسّطة (إبلاغ خلال 24 ساعة)' : 'Simplified (report within 24h)')}
-              </button>
-            ))}
+        {type === '388' && (
+          <div className="grid grid-cols-2 gap-3">
+            <input className="input" placeholder={lang === 'ar' ? 'اسم المشتري' : 'Buyer name'} value={buyer.buyer_name_ar} onChange={e => setBuyer(b => ({ ...b, buyer_name_ar: e.target.value }))} />
+            <input className="input" placeholder={lang === 'ar' ? 'رقم VAT المشتري' : 'Buyer VAT number'} value={buyer.buyer_vat_number} onChange={e => setBuyer(b => ({ ...b, buyer_vat_number: e.target.value }))} dir="ltr" />
           </div>
+        )}
 
-          {/* Customer */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                {t('customer')} *
-              </label>
-              <input className="input" placeholder={lang === 'ar' ? 'اسم العميل' : 'Customer name'} />
+        <div className="space-y-2">
+          <div className="text-sm font-medium text-slate-700">{lang === 'ar' ? 'بنود الفاتورة' : 'Invoice Lines'}</div>
+          {lines.map((l, i) => (
+            <div key={i} className="grid grid-cols-4 gap-2">
+              <input className="input col-span-2" placeholder={lang === 'ar' ? 'الوصف' : 'Description'} value={l.description_ar} onChange={e => updateLine(i, 'description_ar', e.target.value)} />
+              <input className="input" type="number" placeholder={lang === 'ar' ? 'الكمية' : 'Qty'} value={l.quantity} onChange={e => updateLine(i, 'quantity', parseFloat(e.target.value) || 0)} dir="ltr" />
+              <input className="input" type="number" placeholder={lang === 'ar' ? 'السعر' : 'Price'} value={l.unit_price} onChange={e => updateLine(i, 'unit_price', parseFloat(e.target.value) || 0)} dir="ltr" />
             </div>
-            {type === 'B2B' && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                  {lang === 'ar' ? 'الرقم الضريبي للعميل *' : 'Customer VAT Number *'}
-                </label>
-                <input className="input" dir="ltr" placeholder="300XXXXXXXXXXX3" maxLength={15} />
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('issueDate')}</label>
-              <input type="date" className="input" defaultValue={new Date().toISOString().split('T')[0]} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('dueDate')}</label>
-              <input type="date" className="input" />
-            </div>
-          </div>
-
-          {/* Line items */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-slate-700">
-                {lang === 'ar' ? 'بنود الفاتورة' : 'Invoice Lines'}
-              </label>
-              <button onClick={addLine} className="text-xs text-brand-600 hover:text-brand-700 font-medium flex items-center gap-1">
-                <Plus size={12} /> {lang === 'ar' ? 'إضافة بند' : 'Add line'}
-              </button>
-            </div>
-
-            <div className="border border-slate-200 rounded-xl overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-50">
-                    <th className="text-start p-3 font-medium text-slate-500 text-xs">{lang === 'ar' ? 'الوصف' : 'Description'}</th>
-                    <th className="text-center p-3 font-medium text-slate-500 text-xs w-16">{lang === 'ar' ? 'الكمية' : 'Qty'}</th>
-                    <th className="text-end p-3 font-medium text-slate-500 text-xs w-28">{lang === 'ar' ? 'السعر' : 'Unit Price'}</th>
-                    <th className="text-end p-3 font-medium text-slate-500 text-xs w-28">{lang === 'ar' ? 'الإجمالي' : 'Total'}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lines.map((line, i) => (
-                    <tr key={i} className="border-t border-slate-100">
-                      <td className="p-2">
-                        <input className="w-full text-sm border-0 outline-none bg-transparent"
-                          placeholder={lang === 'ar' ? 'وصف المنتج أو الخدمة' : 'Product/service description'}
-                          value={line.desc}
-                          onChange={e => setLines(ls => ls.map((l,j) => j===i ? {...l, desc: e.target.value} : l))} />
-                      </td>
-                      <td className="p-2">
-                        <input type="number" min="1" className="w-full text-center text-sm border-0 outline-none bg-transparent num"
-                          value={line.qty}
-                          onChange={e => setLines(ls => ls.map((l,j) => j===i ? {...l, qty: +e.target.value} : l))} />
-                      </td>
-                      <td className="p-2">
-                        <input type="number" min="0" step="0.01" className="w-full text-end text-sm border-0 outline-none bg-transparent num"
-                          value={line.price}
-                          onChange={e => setLines(ls => ls.map((l,j) => j===i ? {...l, price: +e.target.value} : l))} />
-                      </td>
-                      <td className="p-2 text-end text-sm font-medium num">{fmt(line.qty * line.price)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Totals */}
-          <div className="bg-slate-50 rounded-xl p-4 space-y-2">
-            {[
-              [t('subtotal'), fmt(subtotal)],
-              [`${lang === 'ar' ? 'ضريبة القيمة المضافة' : 'VAT'} (15%)`, fmt(vat)],
-            ].map(([l, v]) => (
-              <div key={l} className="flex justify-between text-sm">
-                <span className="text-slate-500">{l}</span>
-                <span className="font-medium num">{v} {t('sar')}</span>
-              </div>
-            ))}
-            <div className="flex justify-between font-bold text-slate-900 pt-2 border-t border-slate-200">
-              <span>{t('total')}</span>
-              <span className="num">{fmt(total)} {t('sar')}</span>
-            </div>
-          </div>
+          ))}
+          <button onClick={addLine} className="text-sm text-brand-600 hover:text-brand-700">+ {lang === 'ar' ? 'بند جديد' : 'Add line'}</button>
         </div>
 
-        <div className="px-6 pb-6 flex gap-3 justify-end">
-          <button onClick={onClose} className="btn btn-ghost">{t('cancel')}</button>
-          <button className="btn btn-ghost border border-slate-200">
-            {lang === 'ar' ? 'حفظ كمسودة' : 'Save Draft'}
-          </button>
-          <button className="btn btn-primary">
-            <Send size={15} />
-            {type === 'B2B'
-              ? (lang === 'ar' ? 'إرسال للتصفية' : 'Send for Clearance')
-              : (lang === 'ar' ? 'إصدار وإبلاغ' : 'Issue & Report')}
-          </button>
+        <div className="bg-slate-50 rounded-xl p-4 space-y-1 text-sm">
+          <div className="flex justify-between"><span>{lang === 'ar' ? 'المجموع' : 'Subtotal'}</span><span className="num font-semibold">{subtotal.toFixed(2)} SAR</span></div>
+          <div className="flex justify-between"><span>{lang === 'ar' ? 'ضريبة 15%' : 'VAT 15%'}</span><span className="num font-semibold">{vat.toFixed(2)} SAR</span></div>
+          <div className="flex justify-between text-lg font-bold border-t pt-2"><span>{lang === 'ar' ? 'الإجمالي' : 'Total'}</span><span className="num">{total.toFixed(2)} SAR</span></div>
+        </div>
+
+        <div className="flex gap-3 justify-end">
+          <button className="btn btn-secondary" onClick={onClose}>{lang === 'ar' ? 'إلغاء' : 'Cancel'}</button>
+          <button className="btn btn-primary" onClick={handleSave}>{lang === 'ar' ? 'إنشاء الفاتورة' : 'Create Invoice'}</button>
         </div>
       </div>
     </div>
@@ -173,140 +96,98 @@ function NewInvoiceModal({ onClose, lang, t }) {
 }
 
 export default function InvoicingPage() {
-  const { t, lang } = useLang()
+  const { lang } = useLang()
+  const { api } = useAuth()
+  const [loading, setLoading] = useState(true)
+  const [invoices, setInvoices] = useState([])
   const [showNew, setShowNew] = useState(false)
   const [search, setSearch] = useState('')
-  const [filterStatus, setFilterStatus] = useState('all')
 
-  const fmt = n => new Intl.NumberFormat('en-SA', { minimumFractionDigits: 2 }).format(n)
+  const fetchInvoices = async () => {
+    setLoading(true)
+    try {
+      const res = await zatcaAPI.getInvoices(api)
+      setInvoices(res.data.results || [])
+    } catch (err) { console.error(err) }
+    finally { setLoading(false) }
+  }
 
-  const filtered = INVOICES.filter(inv => {
-    const matchSearch = inv.id.includes(search) || inv.customer.toLowerCase().includes(search.toLowerCase()) || inv.customerEn.toLowerCase().includes(search.toLowerCase())
-    const matchStatus = filterStatus === 'all' || inv.status === filterStatus
-    return matchSearch && matchStatus
-  })
+  useEffect(() => { fetchInvoices() }, [])
+
+  const handleCreateInvoice = async (data) => {
+    try {
+      await zatcaAPI.createInvoice(api, data)
+      toast.success(lang === 'ar' ? 'تم إنشاء الفاتورة' : 'Invoice created')
+      setShowNew(false)
+      fetchInvoices()
+    } catch (err) {
+      toast.error(err.response?.data?.detail || JSON.stringify(err.response?.data) || 'Error')
+    }
+  }
+
+  const fmt = (n) => new Intl.NumberFormat(lang === 'ar' ? 'ar-SA' : 'en-SA').format(parseFloat(n))
+
+  const filtered = invoices.filter(i =>
+    i.invoice_number?.toLowerCase().includes(search.toLowerCase()) ||
+    i.buyer_name_ar?.includes(search)
+  )
 
   return (
-    <div className="space-y-5">
-      {showNew && <NewInvoiceModal onClose={() => setShowNew(false)} lang={lang} t={t} />}
-
-      {/* Header */}
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">{t('invoicing')}</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            {lang === 'ar' ? 'الفوترة الإلكترونية — ZATCA المرحلة الثانية' : 'E-Invoicing — ZATCA Phase 2'}
-          </p>
+          <h1 className="text-2xl font-bold text-slate-900">{lang === 'ar' ? 'الفوترة الإلكترونية' : 'E-Invoicing'}</h1>
+          <p className="text-sm text-slate-500">{lang === 'ar' ? 'ZATCA المرحلة الثانية — فاتورة' : 'ZATCA Phase 2 — Fatoora'}</p>
         </div>
-        <button onClick={() => setShowNew(true)} className="btn btn-primary">
-          <Plus size={16} /> {t('newInvoice')}
-        </button>
+        <div className="flex gap-2">
+          <button onClick={fetchInvoices} className="btn btn-secondary"><RefreshCw size={16} /></button>
+          <button onClick={() => setShowNew(true)} className="btn btn-primary flex items-center gap-2">
+            <Plus size={16} />{lang === 'ar' ? 'فاتورة جديدة' : 'New Invoice'}
+          </button>
+        </div>
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: lang === 'ar' ? 'مُصفّاة' : 'Cleared',           value: '847', badge: 'badge-green' },
-          { label: lang === 'ar' ? 'مُبلَّغة' : 'Reported',          value: '312', badge: 'badge-blue' },
-          { label: lang === 'ar' ? 'في الانتظار' : 'Pending',        value: '23',  badge: 'badge-yellow' },
-          { label: lang === 'ar' ? 'مرفوضة' : 'Rejected',           value: '4',   badge: 'badge-red' },
-        ].map(s => (
-          <div key={s.label} className="card p-4 flex items-center gap-3">
-            <span className={`badge ${s.badge} text-base font-bold px-3 py-1`}>{s.value}</span>
-            <span className="text-sm text-slate-600">{s.label}</span>
+      <div className="relative">
+        <Search size={16} className="absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input className="input ps-10" placeholder={lang === 'ar' ? 'بحث عن فاتورة...' : 'Search invoices...'} value={search} onChange={e => setSearch(e.target.value)} />
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-12"><Loader2 size={32} className="animate-spin text-brand-500" /></div>
+      ) : (
+        <div className="card">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="border-b border-slate-200">
+                <th className="text-start py-3 px-2 font-medium text-slate-500">{lang === 'ar' ? 'رقم الفاتورة' : 'Invoice #'}</th>
+                <th className="text-start py-3 px-2 font-medium text-slate-500">{lang === 'ar' ? 'النوع' : 'Type'}</th>
+                <th className="text-start py-3 px-2 font-medium text-slate-500">{lang === 'ar' ? 'التاريخ' : 'Date'}</th>
+                <th className="text-start py-3 px-2 font-medium text-slate-500">{lang === 'ar' ? 'المشتري' : 'Buyer'}</th>
+                <th className="text-start py-3 px-2 font-medium text-slate-500">{lang === 'ar' ? 'المبلغ' : 'Amount'}</th>
+                <th className="text-start py-3 px-2 font-medium text-slate-500">ZATCA</th>
+              </tr></thead>
+              <tbody>
+                {filtered.map(inv => {
+                  const sc = STATUS_CONFIG[inv.zatca_status] || STATUS_CONFIG.pending
+                  return (
+                    <tr key={inv.id} className="border-b border-slate-100 hover:bg-slate-50">
+                      <td className="py-3 px-2 font-medium num">{inv.invoice_number}</td>
+                      <td className="py-3 px-2"><span className={`text-xs px-2 py-0.5 rounded-full ${inv.invoice_type === '388' ? 'bg-purple-100 text-purple-700' : 'bg-teal-100 text-teal-700'}`}>{inv.invoice_type === '388' ? 'B2B' : 'B2C'}</span></td>
+                      <td className="py-3 px-2 text-slate-600 num">{inv.issue_date}</td>
+                      <td className="py-3 px-2">{inv.buyer_name_ar || '-'}</td>
+                      <td className="py-3 px-2 font-semibold num">{fmt(inv.total_amount)} SAR</td>
+                      <td className="py-3 px-2"><span className={`text-xs px-2 py-0.5 rounded-full ${sc.bg} ${sc.text}`}>{lang === 'ar' ? sc.labelAr : sc.labelEn}</span></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            {filtered.length === 0 && <p className="text-center py-8 text-slate-400">{lang === 'ar' ? 'لا توجد فواتير' : 'No invoices yet'}</p>}
           </div>
-        ))}
-      </div>
-
-      {/* Filters */}
-      <div className="card p-4 flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search size={15} className="absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            className="input ps-9 py-2 text-sm"
-            placeholder={lang === 'ar' ? 'بحث في الفواتير...' : 'Search invoices...'}
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
         </div>
-        <select className="input w-auto py-2 text-sm"
-          value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-          <option value="all">{t('all')}</option>
-          {Object.entries(STATUS_CONFIG).map(([k, v]) => (
-            <option key={k} value={k}>{lang === 'ar' ? v.labelAr : v.labelEn}</option>
-          ))}
-        </select>
-        <button className="btn btn-ghost border border-slate-200 text-sm py-2">
-          <Download size={15} /> {t('export')}
-        </button>
-      </div>
+      )}
 
-      {/* Table */}
-      <div className="card">
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>{t('invoiceNumber')}</th>
-                <th>{t('customer')}</th>
-                <th>
-                  {lang === 'ar' ? 'النوع' : 'Type'}
-                </th>
-                <th>{t('amount')}</th>
-                <th>{t('vat')}</th>
-                <th>{t('total')}</th>
-                <th>{t('status')}</th>
-                <th>{t('issueDate')}</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(inv => {
-                const cfg = STATUS_CONFIG[inv.status]
-                const StatusIcon = cfg.icon
-                return (
-                  <tr key={inv.id}>
-                    <td>
-                      <span className="font-mono text-xs text-brand-600 num">{inv.id}</span>
-                    </td>
-                    <td>
-                      <div className="font-medium text-sm">{lang === 'ar' ? inv.customer : inv.customerEn}</div>
-                      {inv.vat && <div className="text-xs text-slate-400 num">{inv.vat}</div>}
-                    </td>
-                    <td>
-                      <span className={`badge ${inv.type === 'B2B' ? 'badge-blue' : 'badge-gray'}`}>
-                        {inv.type}
-                      </span>
-                    </td>
-                    <td className="num">{fmt(inv.amount)}</td>
-                    <td className="num text-slate-500">{fmt(inv.vatAmt)}</td>
-                    <td className="font-semibold num">{fmt(inv.total)}</td>
-                    <td>
-                      <span className={`badge ${cfg.badge} gap-1`}>
-                        <StatusIcon size={11} />
-                        {lang === 'ar' ? cfg.labelAr : cfg.labelEn}
-                      </span>
-                    </td>
-                    <td className="text-slate-400 text-xs num">{inv.date}</td>
-                    <td>
-                      <button className="text-slate-400 hover:text-brand-600 p-1">
-                        <Eye size={15} />
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {filtered.length === 0 && (
-          <div className="text-center py-12 text-slate-400">
-            <FileText size={32} className="mx-auto mb-2 opacity-30" />
-            <p>{t('noData')}</p>
-          </div>
-        )}
-      </div>
+      {showNew && <NewInvoiceModal onClose={() => setShowNew(false)} onSave={handleCreateInvoice} lang={lang} />}
     </div>
   )
 }

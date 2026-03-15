@@ -11,7 +11,7 @@ import HRPage from './pages/hr/HRPage'
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuth()
-  return isAuthenticated ? children : <Navigate to="/app/login" replace />
+  return isAuthenticated ? children : <Navigate to="/login" replace />
 }
 
 export default function App() {
@@ -20,8 +20,8 @@ export default function App() {
       <AuthProvider>
         <BrowserRouter basename="/app">
           <Routes>
-            <Route path="/app/login" element={<LoginPage />} />
-            <Route path="/app/*" element={
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/*" element={
               <ProtectedRoute>
                 <AppShell>
                   <Routes>
@@ -34,7 +34,7 @@ export default function App() {
                 </AppShell>
               </ProtectedRoute>
             } />
-            <Route path="*" element={<Navigate to="/app/dashboard" replace />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </BrowserRouter>
         <Toaster position="top-center" toastOptions={{

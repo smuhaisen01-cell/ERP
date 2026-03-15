@@ -1,0 +1,64 @@
+/**
+ * API service — centralized API calls for all modules.
+ * Uses the axios instance from AuthContext (JWT auto-attached).
+ */
+
+// HR Module
+export const hrAPI = {
+  getDepartments: (api) => api.get('/hr/departments/'),
+  createDepartment: (api, data) => api.post('/hr/departments/', data),
+
+  getEmployees: (api) => api.get('/hr/employees/'),
+  getEmployee: (api, id) => api.get(`/hr/employees/${id}/`),
+  createEmployee: (api, data) => api.post('/hr/employees/', data),
+  getGOSI: (api, id) => api.get(`/hr/employees/${id}/gosi/`),
+  getEOSB: (api, id) => api.get(`/hr/employees/${id}/eosb/`),
+  terminateEmployee: (api, id, data) => api.post(`/hr/employees/${id}/terminate/`, data),
+
+  getPayrollRuns: (api) => api.get('/hr/payroll-runs/'),
+  createPayrollRun: (api, data) => api.post('/hr/payroll-runs/', data),
+  calculatePayroll: (api, id) => api.post(`/hr/payroll-runs/${id}/calculate/`),
+  approvePayroll: (api, id) => api.post(`/hr/payroll-runs/${id}/approve/`),
+
+  getSaudization: (api) => api.get('/hr/saudization/'),
+  generateSaudization: (api) => api.post('/hr/saudization/generate/'),
+}
+
+// Accounting Module
+export const accountingAPI = {
+  getChartOfAccounts: (api) => api.get('/accounting/chart-of-accounts/?page_size=100'),
+  createAccount: (api, data) => api.post('/accounting/chart-of-accounts/', data),
+
+  getJournalEntries: (api) => api.get('/accounting/journal-entries/'),
+  createJournalEntry: (api, data) => api.post('/accounting/journal-entries/', data),
+  postJournalEntry: (api, id) => api.post(`/accounting/journal-entries/${id}/post_entry/`),
+  reverseJournalEntry: (api, id) => api.post(`/accounting/journal-entries/${id}/reverse_entry/`),
+
+  getVATReturns: (api) => api.get('/accounting/vat-returns/'),
+  getZakatReturns: (api) => api.get('/accounting/zakat-returns/'),
+}
+
+// ZATCA Module
+export const zatcaAPI = {
+  getInvoices: (api) => api.get('/zatca/invoices/'),
+  getInvoice: (api, id) => api.get(`/zatca/invoices/${id}/`),
+  createInvoice: (api, data) => api.post('/zatca/invoices/', data),
+  processInvoice: (api, id) => api.post(`/zatca/invoices/${id}/process/`),
+  submitInvoice: (api, id) => api.post(`/zatca/invoices/${id}/submit/`),
+  cancelInvoice: (api, id) => api.post(`/zatca/invoices/${id}/cancel/`),
+  getAuditLog: (api) => api.get('/zatca/audit-log/'),
+  getCredentials: (api) => api.get('/zatca/credentials/'),
+}
+
+// POS Module
+export const posAPI = {
+  getBranches: (api) => api.get('/pos/branches/'),
+  getTerminals: (api) => api.get('/pos/terminals/'),
+
+  getSessions: (api) => api.get('/pos/sessions/'),
+  createSession: (api, data) => api.post('/pos/sessions/', data),
+  closeSession: (api, id, data) => api.post(`/pos/sessions/${id}/close/`, data),
+
+  getTransactions: (api) => api.get('/pos/transactions/'),
+  createTransaction: (api, data) => api.post('/pos/transactions/', data),
+}
