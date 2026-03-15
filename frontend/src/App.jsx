@@ -8,6 +8,8 @@ import DashboardPage from './pages/dashboard/DashboardPage'
 import InvoicingPage from './pages/invoicing/InvoicingPage'
 import POSPage from './pages/pos/POSPage'
 import HRPage from './pages/hr/HRPage'
+import AccountingPage from './pages/accounting/AccountingPage'
+import InventoryPage from './pages/inventory/InventoryPage'
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuth()
@@ -30,6 +32,8 @@ export default function App() {
                     <Route path="invoicing/*" element={<InvoicingPage />} />
                     <Route path="pos" element={<POSPage />} />
                     <Route path="hr/*" element={<HRPage />} />
+                    <Route path="accounting/*" element={<AccountingPage />} />
+                    <Route path="inventory/*" element={<InventoryPage />} />
                   </Routes>
                 </AppShell>
               </ProtectedRoute>
