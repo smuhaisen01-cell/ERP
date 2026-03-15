@@ -13,6 +13,7 @@ class TaxInvoiceLineSerializer(serializers.ModelSerializer):
             "quantity", "unit", "unit_price", "discount_amount",
             "line_total", "vat_rate", "vat_amount", "vat_category_code",
         ]
+        read_only_fields = ["id", "line_number"]
 
 
 class TaxInvoiceSerializer(serializers.ModelSerializer):
