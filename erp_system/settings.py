@@ -80,7 +80,7 @@ TENANT_APPS = [
     "apps.inventory",    # Stock, warehouses, products
     "apps.hr",           # HR, Payroll, GOSI, Saudization
     "apps.pos",          # Point of Sale, offline-first
-
+    "apps.zatca",        # TaxInvoice + lines (per-tenant)
     # AI Platform app (read-only — separate DB connection)
     "apps.ai",           # Copilot, forecasting, anomaly, alerts
 ]
