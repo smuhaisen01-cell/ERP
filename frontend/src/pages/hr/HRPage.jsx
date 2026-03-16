@@ -28,7 +28,7 @@ function Modal({ onClose, title, children }) {
 
 export default function HRPage() {
   const { lang } = useLang()
-  const { api } = useAuth()
+  const { api, user } = useAuth()
   const [tab, setTab] = useState('employees')
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState({
@@ -454,8 +454,10 @@ function AddEmployeeForm({ departments, lang, onSave, onClose }) {
   )
 }
 
-function AddLeaveForm({ employees, leaveTypes, lang, onSave, onClose }) {
-  const [f, setF] = useState({ employee: employees[0]?.id || '', leave_type: leaveTypes[0]?.id || '', start_date: '', end_date: '', days: '', reason: '' })
+function AddLeaveForm({ employees, leaveTypes, lang, onSave, onClose, currentUser }) {
+  const myEmployee = employees.find(e => e.name_en?.toLowerCase().includes(currentUser?.username?.toLowerCase()) || e.id === currentUser?.employee_id)
+  const isAdmin = currentUser?.is_staff
+  const [f, setF] = useState({ employee: myEmployee?.id || employees[0]?.id || '', leave_type: leaveTypes[0]?.id || '', start_date: '', end_date: '', days: '', reason: '' })
   const s = (k, v) => {
     const updated = { ...f, [k]: v }
     if ((k === 'start_date' || k === 'end_date') && updated.start_date && updated.end_date) {
@@ -468,9 +470,13 @@ function AddLeaveForm({ employees, leaveTypes, lang, onSave, onClose }) {
   }
   return (
     <div className="space-y-3">
-      <select className="input" value={f.employee} onChange={e => s('employee', e.target.value)}>
-        {employees.map(e => <option key={e.id} value={e.id}>{e.name_ar} ({e.employee_number})</option>)}
-      </select>
+      {isAdmin ? (
+        <select className="input" value={f.employee} onChange={e => s('employee', e.target.value)}>
+          {employees.map(e => <option key={e.id} value={e.id}>{e.name_ar} ({e.employee_number})</option>)}
+        </select>
+      ) : (
+        <div className="input bg-slate-50">{myEmployee ? `${myEmployee.name_ar} (${myEmployee.employee_number})` : (lang === 'ar' ? 'لم يتم ربط حسابك بموظف' : 'Your account is not linked to an employee')}</div>
+      )}
       <select className="input" value={f.leave_type} onChange={e => s('leave_type', e.target.value)}>
         {leaveTypes.map(t => <option key={t.id} value={t.id}>{lang === 'ar' ? t.name_ar : t.name_en}</option>)}
       </select>
@@ -485,7 +491,7 @@ function AddLeaveForm({ employees, leaveTypes, lang, onSave, onClose }) {
         </div>
         <div>
           <label className="text-xs text-slate-500 mb-1 block">{lang === 'ar' ? 'الأيام' : 'Days'}</label>
-          <input className="input bg-slate-50 font-semibold" type="number" value={f.days} onChange={e => s('days', e.target.value)} dir="ltr" readOnly />
+          <input className="input bg-slate-50 font-semibold" type="number" value={f.days} readOnly dir="ltr" />
         </div>
       </div>
       <textarea className="input" rows={2} placeholder={lang === 'ar' ? 'السبب' : 'Reason'} value={f.reason} onChange={e => s('reason', e.target.value)} />
@@ -496,7 +502,6 @@ function AddLeaveForm({ employees, leaveTypes, lang, onSave, onClose }) {
     </div>
   )
 }
-
 function TerminationForm({ employees, lang, onCalculate, onClose }) {
   const [f, setF] = useState({ employee: employees[0]?.id || '', reason: 'resignation', termination_date: new Date().toISOString().split('T')[0] })
   const s = (k, v) => setF(p => ({ ...p, [k]: v }))
