@@ -160,23 +160,52 @@ class POSTransactionViewSet(viewsets.ModelViewSet):
         """Create a ZATCA simplified (B2C) invoice from this POS transaction."""
         try:
             from apps.zatca.models import TaxInvoice, TaxInvoiceLine
+            import base64
+            from datetime import datetime, timezone as tz
+
+            # Generate QR
+            def tlv(tag, val):
+                b = val.encode("utf-8")
+                return bytes([tag, len(b)]) + b
+
+            subtotal = txn.subtotal
+            vat_amt = txn.vat_amount
+            total = txn.total_amount
+
+            tlv_data = b""
+            tlv_data += tlv(1, "Seller")
+            tlv_data += tlv(2, "300000000000003")
+            tlv_data += tlv(3, datetime.now(tz=tz.utc).isoformat())
+            tlv_data += tlv(4, str(total))
+            tlv_data += tlv(5, str(vat_amt))
+            qr = base64.b64encode(tlv_data).decode()
+
+            # Hijri date
+            hijri_date = ""
+            try:
+                from hijri_converter import convert
+                d = txn.transacted_at.date()
+                h = convert.Gregorian(d.year, d.month, d.day).to_hijri()
+                hijri_date = f"{h.year:04d}-{h.month:02d}-{h.day:02d}"
+            except Exception:
+                pass
 
             invoice = TaxInvoice.objects.create(
                 invoice_number=f"SINV-{txn.transaction_number}",
                 invoice_type=TaxInvoice.InvoiceType.SIMPLIFIED,
-                invoice_type_code="0200000",  # Simplified invoice
+                invoice_type_code="0200000",
                 issue_date=txn.transacted_at.date(),
                 issue_time=txn.transacted_at.time(),
-                hijri_date="",  # Will be set during process step
-                subtotal=txn.subtotal,
+                hijri_date=hijri_date,
+                subtotal=subtotal,
                 discount_total=txn.discount,
-                taxable_amount=txn.subtotal - txn.discount,
-                vat_amount=txn.vat_amount,
-                total_amount=txn.total_amount,
+                taxable_amount=subtotal - txn.discount,
+                vat_amount=vat_amt,
+                total_amount=total,
                 invoice_hash="",
                 previous_hash="",
                 digital_signature="",
-                qr_code_tlv="",
+                qr_code_tlv=qr,
                 signed_xml="",
                 created_by=txn.session.cashier,
             )
@@ -195,13 +224,12 @@ class POSTransactionViewSet(viewsets.ModelViewSet):
                     vat_amount=line.vat_amount,
                 )
 
-            # Link invoice to transaction
             txn.zatca_invoice = invoice
             txn.save(update_fields=["zatca_invoice"])
 
-        except Exception:
-            pass  # Log but don't fail the POS sale
-
+        except Exception as e:
+            import logging
+            logging.getLogger("apps.pos").warning(f"POS ZATCA invoice failed: {e}")
     def _publish_pos_sale(self, txn):
         try:
             import redis as redis_lib
