@@ -456,7 +456,16 @@ function AddEmployeeForm({ departments, lang, onSave, onClose }) {
 
 function AddLeaveForm({ employees, leaveTypes, lang, onSave, onClose }) {
   const [f, setF] = useState({ employee: employees[0]?.id || '', leave_type: leaveTypes[0]?.id || '', start_date: '', end_date: '', days: '', reason: '' })
-  const s = (k, v) => setF(p => ({ ...p, [k]: v }))
+  const s = (k, v) => {
+    const updated = { ...f, [k]: v }
+    if ((k === 'start_date' || k === 'end_date') && updated.start_date && updated.end_date) {
+      const start = new Date(updated.start_date)
+      const end = new Date(updated.end_date)
+      const diff = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1
+      if (diff > 0) updated.days = diff.toString()
+    }
+    setF(updated)
+  }
   return (
     <div className="space-y-3">
       <select className="input" value={f.employee} onChange={e => s('employee', e.target.value)}>
@@ -466,9 +475,18 @@ function AddLeaveForm({ employees, leaveTypes, lang, onSave, onClose }) {
         {leaveTypes.map(t => <option key={t.id} value={t.id}>{lang === 'ar' ? t.name_ar : t.name_en}</option>)}
       </select>
       <div className="grid grid-cols-3 gap-3">
-        <input className="input" type="date" value={f.start_date} onChange={e => s('start_date', e.target.value)} dir="ltr" />
-        <input className="input" type="date" value={f.end_date} onChange={e => s('end_date', e.target.value)} dir="ltr" />
-        <input className="input" type="number" placeholder={lang === 'ar' ? 'أيام' : 'Days'} value={f.days} onChange={e => s('days', e.target.value)} dir="ltr" />
+        <div>
+          <label className="text-xs text-slate-500 mb-1 block">{lang === 'ar' ? 'من' : 'From'}</label>
+          <input className="input" type="date" value={f.start_date} onChange={e => s('start_date', e.target.value)} dir="ltr" />
+        </div>
+        <div>
+          <label className="text-xs text-slate-500 mb-1 block">{lang === 'ar' ? 'إلى' : 'To'}</label>
+          <input className="input" type="date" value={f.end_date} onChange={e => s('end_date', e.target.value)} dir="ltr" />
+        </div>
+        <div>
+          <label className="text-xs text-slate-500 mb-1 block">{lang === 'ar' ? 'الأيام' : 'Days'}</label>
+          <input className="input bg-slate-50 font-semibold" type="number" value={f.days} onChange={e => s('days', e.target.value)} dir="ltr" readOnly />
+        </div>
       </div>
       <textarea className="input" rows={2} placeholder={lang === 'ar' ? 'السبب' : 'Reason'} value={f.reason} onChange={e => s('reason', e.target.value)} />
       <div className="flex gap-3 justify-end">
