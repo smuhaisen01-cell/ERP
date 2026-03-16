@@ -1,6 +1,5 @@
 /**
  * API service — centralized API calls for all modules.
- * Uses the axios instance from AuthContext (JWT auto-attached).
  */
 
 // HR Module
@@ -14,10 +13,9 @@ export const hrAPI = {
   updateEmployee: (api, id, data) => api.patch(`/hr/employees/${id}/`, data),
   getGOSI: (api, id) => api.get(`/hr/employees/${id}/gosi/`),
   getEOSB: (api, id) => api.get(`/hr/employees/${id}/eosb/`),
-  terminateEmployee: (api, id, data) => api.post(`/hr/employees/${id}/terminate/`, data),
   getPayslips: (api, id) => api.get(`/hr/employees/${id}/payslips/`),
+  getEmployeeDocuments: (api, id) => api.get(`/hr/employees/${id}/documents/`),
 
-  // Leave
   getLeaveTypes: (api) => api.get('/hr/leave-types/'),
   seedLeaveTypes: (api) => api.post('/hr/leave-types/seed_defaults/'),
   getLeaveRequests: (api) => api.get('/hr/leave-requests/'),
@@ -25,12 +23,10 @@ export const hrAPI = {
   approveLeave: (api, id) => api.post(`/hr/leave-requests/${id}/approve/`),
   rejectLeave: (api, id, data) => api.post(`/hr/leave-requests/${id}/reject/`, data),
 
-  // Attendance
   getAttendance: (api, params) => api.get('/hr/attendance/', { params }),
   createAttendance: (api, data) => api.post('/hr/attendance/', data),
   bulkAttendance: (api) => api.post('/hr/attendance/bulk_checkin/'),
 
-  // Payroll
   getPayrollRuns: (api) => api.get('/hr/payroll-runs/'),
   getPayrollRun: (api, id) => api.get(`/hr/payroll-runs/${id}/`),
   createPayrollRun: (api, data) => api.post('/hr/payroll-runs/', data),
@@ -38,19 +34,15 @@ export const hrAPI = {
   approvePayroll: (api, id) => api.post(`/hr/payroll-runs/${id}/approve/`),
   payPayroll: (api, id) => api.post(`/hr/payroll-runs/${id}/pay/`),
   getPayslipData: (api, id) => api.get(`/hr/payroll-runs/${id}/payslip_data/`),
-  wpsExportUrl: (id, token) => `/api/hr/payroll-runs/${id}/wps_export/`,
 
-  // Termination
   calculateTermination: (api, data) => api.post('/hr/terminations/calculate/', data),
   processTermination: (api, data) => api.post('/hr/terminations/process/', data),
   getTerminations: (api) => api.get('/hr/terminations/'),
 
-  // Documents
-  getDocuments: (api, params) => api.get('/hr/documents/', { params }),
+  getAllDocuments: (api) => api.get('/hr/documents/'),
   uploadDocument: (api, data) => api.post('/hr/documents/', data),
   deleteDocument: (api, id) => api.delete(`/hr/documents/${id}/`),
 
-  // Saudization
   getSaudization: (api) => api.get('/hr/saudization/'),
   generateSaudization: (api) => api.post('/hr/saudization/generate/'),
 }
