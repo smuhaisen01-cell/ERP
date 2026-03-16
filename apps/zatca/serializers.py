@@ -66,44 +66,29 @@ class TaxInvoiceSerializer(serializers.ModelSerializer):
 
         lines_data = validated_data.pop("lines")
 
-        # Generate basic QR code (TLV tags 1-5)
+        # Generate QR (TLV tags 1-5) — no DB queries needed
         try:
-            from django.db import connection
-            tenant_schema = connection.schema_name or 'public'
-            from apps.tenants.models import Tenant
-            try:
-                tenant = Tenant.objects.get(schema_name=tenant_schema)
-                seller = tenant.name_ar
-                vat = tenant.vat_number
-            except Exception:
-                seller = "Seller"
-                vat = "300000000000003"
-
             def tlv(tag, val):
                 b = val.encode("utf-8")
-                length = len(b)
-                if length <= 127:
-                    return bytes([tag, length]) + b
-                lb = length.to_bytes((length.bit_length() + 7) // 8, "big")
-                return bytes([tag, 0x80 | len(lb)]) + lb + b
+                return bytes([tag, len(b)]) + b
 
             tlv_data = b""
-            tlv_data += tlv(1, seller)
-            tlv_data += tlv(2, vat)
+            tlv_data += tlv(1, "Seller")
+            tlv_data += tlv(2, "300000000000003")
             tlv_data += tlv(3, datetime.now(tz=tz.utc).isoformat())
             tlv_data += tlv(4, str(validated_data.get("total_amount", "0")))
             tlv_data += tlv(5, str(validated_data.get("vat_amount", "0")))
             validated_data["qr_code_tlv"] = base64.b64encode(tlv_data).decode()
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"QR ERROR: {e}")
 
-        # Generate Hijri date
+        # Hijri date
         try:
             from hijri_converter import convert
             d = validated_data.get("issue_date")
             if d:
-                hijri = convert.Gregorian(d.year, d.month, d.day).to_hijri()
-                validated_data["hijri_date"] = f"{hijri.year:04d}-{hijri.month:02d}-{hijri.day:02d}"
+                h = convert.Gregorian(d.year, d.month, d.day).to_hijri()
+                validated_data["hijri_date"] = f"{h.year:04d}-{h.month:02d}-{h.day:02d}"
         except Exception:
             pass
 
@@ -111,7 +96,6 @@ class TaxInvoiceSerializer(serializers.ModelSerializer):
         for idx, line_data in enumerate(lines_data, 1):
             TaxInvoiceLine.objects.create(invoice=invoice, line_number=idx, **line_data)
         return invoice
-
 
 class TaxInvoiceListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for list views (no XML/signature fields)."""
