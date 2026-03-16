@@ -73,7 +73,7 @@ class POSSessionSerializer(serializers.ModelSerializer):
             "total_sales", "total_vat", "total_cash", "total_mada",
             "total_stc_pay", "total_credit_card", "transaction_count",
         ]
-       read_only_fields = [
+        read_only_fields = [
             "id", "cashier", "cashier_name", "opened_at", "closed_at",
             "total_sales", "total_vat", "total_cash",
             "total_mada", "total_stc_pay", "total_credit_card", "transaction_count",
