@@ -52,6 +52,7 @@ urlpatterns = [
     # ─── API Modules ──────────────────────────────────────────
     path("api/", api_root, name="api_root"),
     path("api/accounting/", include("apps.accounting.urls")),
+    path("api/reports/", include("apps.accounting.report_urls")),
     path("api/zatca/", include("apps.zatca.urls")),
     path("api/hr/", include("apps.hr.urls")),
     path("api/pos/", include("apps.pos.urls")),

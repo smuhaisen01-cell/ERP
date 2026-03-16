@@ -62,3 +62,14 @@ export const posAPI = {
   getTransactions: (api) => api.get('/pos/transactions/'),
   createTransaction: (api, data) => api.post('/pos/transactions/', data),
 }
+
+// Reports Module
+export const reportsAPI = {
+  getTrialBalance: (api, params) => api.get('/reports/trial-balance/', { params }),
+  getIncomeStatement: (api, params) => api.get('/reports/income-statement/', { params }),
+  getBalanceSheet: (api, params) => api.get('/reports/balance-sheet/', { params }),
+  getVAT103: (api, params) => api.get('/reports/vat-103/', { params }),
+  getHRSummary: (api) => api.get('/reports/hr-summary/'),
+  getZATCAStatus: (api, params) => api.get('/reports/zatca-status/', { params }),
+  getPOSDaily: (api, params) => api.get('/reports/pos-daily/', { params }),
+}

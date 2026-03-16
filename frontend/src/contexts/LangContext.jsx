@@ -9,6 +9,7 @@ const translations = {
     hr: 'الموارد البشرية',
     accounting: 'المحاسبة',
     inventory: 'المخزون',
+    reports: 'التقارير',
     settings: 'الإعدادات',
     logout: 'تسجيل الخروج',
 
@@ -95,6 +96,7 @@ const translations = {
     hr: 'Human Resources',
     accounting: 'Accounting',
     inventory: 'Inventory',
+    reports: 'Reports',
     settings: 'Settings',
     logout: 'Sign Out',
 

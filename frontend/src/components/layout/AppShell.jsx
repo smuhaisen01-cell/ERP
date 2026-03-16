@@ -3,7 +3,7 @@ import { useState } from 'react'
 import {
   LayoutDashboard, FileText, ShoppingCart, Users,
   BookOpen, Package, Settings, LogOut, Menu, X,
-  Building2, Globe
+  Building2, Globe, FileBarChart
 } from 'lucide-react'
 import { useLang } from '../../contexts/LangContext'
 import { useAuth } from '../../contexts/AuthContext'
@@ -15,6 +15,7 @@ const NAV = [
   { key: 'hr',         icon: Users,             path: '/hr' },
   { key: 'accounting', icon: BookOpen,          path: '/accounting' },
   { key: 'inventory',  icon: Package,           path: '/inventory' },
+  { key: 'reports',    icon: FileBarChart,      path: '/reports' },
 ]
 
 function Sidebar({ open, onClose }) {
