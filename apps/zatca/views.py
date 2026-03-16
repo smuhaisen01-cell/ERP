@@ -86,9 +86,66 @@ class TaxInvoiceViewSet(viewsets.ModelViewSet):
                 invoice.hijri_date = ""
 
             invoice.save(update_fields=["qr_code_tlv", "hijri_date"])
+
+            # Auto-create GL journal entry for this invoice
+            self._create_gl_entry(invoice)
         except Exception as e:
             import logging
             logging.getLogger("apps.zatca").warning(f"QR generation failed: {e}")
+
+    def _create_gl_entry(self, invoice):
+        """Auto-create a journal entry for the invoice (Revenue + VAT + AR)."""
+        try:
+            from apps.accounting.models import ChartOfAccount, JournalEntry, JournalEntryLine
+            import uuid as uuid_mod
+
+            # Find accounts by code (seeded by SOCPA)
+            ar_account = ChartOfAccount.objects.filter(code='1121').first()  # Trade Receivables
+            revenue_account = ChartOfAccount.objects.filter(code='4100').first()  # Sales Revenue
+            vat_account = ChartOfAccount.objects.filter(code='2120').first()  # VAT Output
+
+            if not (ar_account and revenue_account and vat_account):
+                return  # Accounts not seeded yet
+
+            entry = JournalEntry.objects.create(
+                entry_number=f"JE-{invoice.invoice_number}",
+                entry_date=invoice.issue_date,
+                description_ar=f"فاتورة {invoice.invoice_number}",
+                description_en=f"Invoice {invoice.invoice_number}",
+                reference=invoice.invoice_number,
+                status='posted',
+                created_by=invoice.created_by,
+                posted_by=invoice.created_by,
+                posted_at=timezone.now(),
+            )
+
+            # Debit: Accounts Receivable (total)
+            JournalEntryLine.objects.create(
+                entry=entry,
+                account=ar_account,
+                description_ar=f"ذمم مدينة — {invoice.invoice_number}",
+                debit_amount=invoice.total_amount,
+                credit_amount=0,
+            )
+            # Credit: Revenue (subtotal)
+            JournalEntryLine.objects.create(
+                entry=entry,
+                account=revenue_account,
+                description_ar=f"إيرادات — {invoice.invoice_number}",
+                debit_amount=0,
+                credit_amount=invoice.taxable_amount,
+            )
+            # Credit: VAT Output (vat)
+            JournalEntryLine.objects.create(
+                entry=entry,
+                account=vat_account,
+                description_ar=f"ضريبة مخرجات — {invoice.invoice_number}",
+                debit_amount=0,
+                credit_amount=invoice.vat_amount,
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger("apps.zatca").warning(f"Auto GL entry failed: {e}")
 
     @action(detail=True, methods=["post"])
     def process(self, request, pk=None):

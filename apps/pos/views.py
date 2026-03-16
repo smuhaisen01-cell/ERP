@@ -32,6 +32,31 @@ class POSTerminalViewSet(viewsets.ModelViewSet):
     serializer_class = POSTerminalSerializer
     filterset_fields = ["branch", "is_active", "zatca_csid_registered"]
 
+    @action(detail=False, methods=["post"])
+    def setup_default(self, request):
+        """Auto-create a default branch + terminal if none exist."""
+        branch = Branch.objects.first()
+        if not branch:
+            branch = Branch.objects.create(
+                code="MAIN",
+                name_ar="الفرع الرئيسي",
+                name_en="Main Branch",
+                city="Riyadh",
+                address_ar="الرياض",
+            )
+        terminal = POSTerminal.objects.first()
+        if not terminal:
+            terminal = POSTerminal.objects.create(
+                terminal_id="MAIN-T01",
+                branch=branch,
+                name="Terminal 1",
+            )
+        return Response({
+            "branch_id": branch.id,
+            "terminal_id": terminal.id,
+            "terminal_code": terminal.terminal_id,
+        })
+
 
 class POSSessionViewSet(viewsets.ModelViewSet):
     queryset = POSSession.objects.select_related("terminal", "cashier").all()

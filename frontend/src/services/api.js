@@ -54,6 +54,7 @@ export const zatcaAPI = {
 export const posAPI = {
   getBranches: (api) => api.get('/pos/branches/'),
   getTerminals: (api) => api.get('/pos/terminals/'),
+  setupDefault: (api) => api.post('/pos/terminals/setup_default/'),
 
   getSessions: (api) => api.get('/pos/sessions/'),
   createSession: (api, data) => api.post('/pos/sessions/', data),

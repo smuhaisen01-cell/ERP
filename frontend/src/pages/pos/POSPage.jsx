@@ -129,27 +129,33 @@ export default function POSPage() {
   const completeSale = async (paymentMethod, amountPaid) => {
     setLoading(true)
     try {
-      // 1. Ensure we have a session (create one if not)
+      // 1. Ensure branch + terminal exist (auto-setup)
+      let terminalId = session?.terminal
+      if (!terminalId) {
+        try {
+          const setupRes = await posAPI.setupDefault(api)
+          terminalId = setupRes.data.terminal_id
+        } catch (err) {
+          console.log('Terminal setup skipped:', err)
+        }
+      }
+
+      // 2. Ensure we have a session
       let sessionId = session?.id
-      if (!sessionId) {
+      if (!sessionId && terminalId) {
         try {
           const sessRes = await posAPI.createSession(api, {
-            terminal: 1,
+            terminal: terminalId,
             opening_cash: '0.00',
           })
           setSession(sessRes.data)
           sessionId = sessRes.data.id
         } catch (err) {
-          // If terminal doesn't exist, create branch + terminal first
-          try {
-            await posAPI.getBranches(api) // check if any exist
-          } catch {
-            // Ignore — we'll create the transaction with just the invoice
-          }
+          console.log('Session creation skipped:', err)
         }
       }
 
-      // 2. Create ZATCA simplified invoice (B2C) directly
+      // 3. Create ZATCA simplified invoice (B2C) — this also auto-creates GL entries
       const invoiceData = {
         invoice_type: '386',
         issue_date: new Date().toISOString().split('T')[0],
@@ -171,7 +177,7 @@ export default function POSPage() {
 
       const invRes = await zatcaAPI.createInvoice(api, invoiceData)
 
-      // 3. Also create POS transaction if we have a session
+      // 4. Create POS transaction linked to session
       if (sessionId) {
         try {
           await posAPI.createTransaction(api, {
@@ -196,7 +202,7 @@ export default function POSPage() {
             })),
           })
         } catch (err) {
-          console.log('POS transaction save skipped:', err)
+          console.log('POS transaction save error:', err?.response?.data || err)
         }
       }
 
