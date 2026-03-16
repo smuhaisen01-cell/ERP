@@ -56,6 +56,7 @@ urlpatterns = [
     path("api/zatca/", include("apps.zatca.urls")),
     path("api/hr/", include("apps.hr.urls")),
     path("api/pos/", include("apps.pos.urls")),
+    path("api/users/", include("apps.tenants.user_urls")),
     path("api/ai/", include("apps.ai.urls")),
 
     # ─── Django Admin ─────────────────────────────────────────

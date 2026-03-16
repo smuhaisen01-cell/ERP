@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Send, FileText, CheckCircle2, Clock, XCircle, Loader2, RefreshCw } from 'lucide-react'
+import { Plus, Search, Send, FileText, CheckCircle2, Clock, XCircle, Loader2, RefreshCw, Eye, QrCode } from 'lucide-react'
 import { useLang } from '../../contexts/LangContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { zatcaAPI } from '../../services/api'
@@ -95,12 +95,130 @@ function NewInvoiceModal({ onClose, onSave, lang }) {
   )
 }
 
+function InvoiceDetailModal({ invoice, onClose, lang, api }) {
+  const [detail, setDetail] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const fmt = (n) => parseFloat(n || 0).toFixed(2)
+
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        const res = await zatcaAPI.getInvoice(api, invoice.id)
+        setDetail(res.data)
+      } catch { setDetail(invoice) }
+      finally { setLoading(false) }
+    }
+    fetch()
+  }, [invoice.id])
+
+  const inv = detail || invoice
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        {loading ? (
+          <div className="flex justify-center py-8"><Loader2 size={32} className="animate-spin text-brand-500" /></div>
+        ) : (
+          <>
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-bold">{inv.invoice_number}</h2>
+                <div className="text-sm text-slate-500">{inv.issue_date} · {inv.hijri_date || ''}</div>
+              </div>
+              <span className={`text-xs px-3 py-1 rounded-full ${inv.invoice_type === '388' ? 'bg-purple-100 text-purple-700' : 'bg-teal-100 text-teal-700'}`}>
+                {inv.invoice_type === '388' ? 'B2B' : 'B2C'}
+              </span>
+            </div>
+
+            {inv.buyer_name_ar && (
+              <div className="bg-slate-50 rounded-xl p-3">
+                <div className="text-xs text-slate-500 mb-1">{lang === 'ar' ? 'المشتري' : 'Buyer'}</div>
+                <div className="font-medium">{inv.buyer_name_ar}</div>
+                {inv.buyer_vat_number && <div className="text-sm text-slate-500 num">{lang === 'ar' ? 'رقم VAT:' : 'VAT:'} {inv.buyer_vat_number}</div>}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-slate-50 rounded-xl p-3">
+                <div className="text-xs text-slate-500">{lang === 'ar' ? 'المجموع' : 'Subtotal'}</div>
+                <div className="font-bold num">{fmt(inv.subtotal)} SAR</div>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3">
+                <div className="text-xs text-slate-500">{lang === 'ar' ? 'الضريبة' : 'VAT'}</div>
+                <div className="font-bold num">{fmt(inv.vat_amount)} SAR</div>
+              </div>
+              <div className="bg-brand-50 rounded-xl p-3">
+                <div className="text-xs text-brand-600">{lang === 'ar' ? 'الإجمالي' : 'Total'}</div>
+                <div className="font-bold text-brand-700 num">{fmt(inv.total_amount)} SAR</div>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3">
+                <div className="text-xs text-slate-500">ZATCA</div>
+                <div className="font-bold">{inv.zatca_status}</div>
+              </div>
+            </div>
+
+            {/* Invoice Lines */}
+            {inv.lines && inv.lines.length > 0 && (
+              <div>
+                <h4 className="font-semibold mb-2">{lang === 'ar' ? 'بنود الفاتورة' : 'Invoice Lines'}</h4>
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b">
+                    <th className="text-start py-2">{lang === 'ar' ? 'الوصف' : 'Description'}</th>
+                    <th className="text-start py-2">{lang === 'ar' ? 'الكمية' : 'Qty'}</th>
+                    <th className="text-start py-2">{lang === 'ar' ? 'السعر' : 'Price'}</th>
+                    <th className="text-start py-2">{lang === 'ar' ? 'الضريبة' : 'VAT'}</th>
+                    <th className="text-start py-2">{lang === 'ar' ? 'المجموع' : 'Total'}</th>
+                  </tr></thead>
+                  <tbody>
+                    {inv.lines.map((line, i) => (
+                      <tr key={i} className="border-b border-slate-100">
+                        <td className="py-2">{line.description_ar}</td>
+                        <td className="py-2 num">{line.quantity}</td>
+                        <td className="py-2 num">{fmt(line.unit_price)}</td>
+                        <td className="py-2 num">{fmt(line.vat_amount)}</td>
+                        <td className="py-2 num font-semibold">{fmt(line.line_total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* QR Code */}
+            {inv.qr_code_tlv && (
+              <div className="border rounded-xl p-4 text-center">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <QrCode size={18} className="text-slate-500" />
+                  <span className="text-sm font-medium text-slate-600">{lang === 'ar' ? 'رمز QR — ZATCA' : 'ZATCA QR Code'}</span>
+                </div>
+                <div className="bg-white p-4 rounded-lg inline-block border">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(inv.qr_code_tlv)}`}
+                    alt="ZATCA QR Code"
+                    className="w-48 h-48 mx-auto"
+                  />
+                </div>
+                <div className="text-xs text-slate-400 mt-2 break-all max-w-sm mx-auto" dir="ltr">{inv.qr_code_tlv.substring(0, 60)}...</div>
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <button className="btn btn-secondary" onClick={onClose}>{lang === 'ar' ? 'إغلاق' : 'Close'}</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function InvoicingPage() {
   const { lang } = useLang()
   const { api } = useAuth()
   const [loading, setLoading] = useState(true)
   const [invoices, setInvoices] = useState([])
   const [showNew, setShowNew] = useState(false)
+  const [selectedInvoice, setSelectedInvoice] = useState(null)
   const [search, setSearch] = useState('')
 
   const fetchInvoices = async () => {
@@ -165,18 +283,24 @@ export default function InvoicingPage() {
                 <th className="text-start py-3 px-2 font-medium text-slate-500">{lang === 'ar' ? 'المشتري' : 'Buyer'}</th>
                 <th className="text-start py-3 px-2 font-medium text-slate-500">{lang === 'ar' ? 'المبلغ' : 'Amount'}</th>
                 <th className="text-start py-3 px-2 font-medium text-slate-500">ZATCA</th>
+                <th className="text-start py-3 px-2 font-medium text-slate-500">QR</th>
               </tr></thead>
               <tbody>
                 {filtered.map(inv => {
                   const sc = STATUS_CONFIG[inv.zatca_status] || STATUS_CONFIG.pending
                   return (
-                    <tr key={inv.id} className="border-b border-slate-100 hover:bg-slate-50">
+                    <tr key={inv.id} className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer" onClick={() => setSelectedInvoice(inv)}>
                       <td className="py-3 px-2 font-medium num">{inv.invoice_number}</td>
                       <td className="py-3 px-2"><span className={`text-xs px-2 py-0.5 rounded-full ${inv.invoice_type === '388' ? 'bg-purple-100 text-purple-700' : 'bg-teal-100 text-teal-700'}`}>{inv.invoice_type === '388' ? 'B2B' : 'B2C'}</span></td>
                       <td className="py-3 px-2 text-slate-600 num">{inv.issue_date}</td>
                       <td className="py-3 px-2">{inv.buyer_name_ar || '-'}</td>
                       <td className="py-3 px-2 font-semibold num">{fmt(inv.total_amount)} SAR</td>
                       <td className="py-3 px-2"><span className={`text-xs px-2 py-0.5 rounded-full ${sc.bg} ${sc.text}`}>{lang === 'ar' ? sc.labelAr : sc.labelEn}</span></td>
+                      <td className="py-3 px-2">
+                        <button onClick={(e) => { e.stopPropagation(); setSelectedInvoice(inv) }} className="text-slate-400 hover:text-brand-600">
+                          <Eye size={16} />
+                        </button>
+                      </td>
                     </tr>
                   )
                 })}
@@ -188,6 +312,7 @@ export default function InvoicingPage() {
       )}
 
       {showNew && <NewInvoiceModal onClose={() => setShowNew(false)} onSave={handleCreateInvoice} lang={lang} />}
+      {selectedInvoice && <InvoiceDetailModal invoice={selectedInvoice} onClose={() => setSelectedInvoice(null)} lang={lang} api={api} />}
     </div>
   )
 }

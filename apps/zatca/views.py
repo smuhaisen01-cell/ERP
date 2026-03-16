@@ -40,10 +40,55 @@ class TaxInvoiceViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         invoice_number = f"INV-{timezone.now().strftime('%Y%m%d')}-{uuid_lib.uuid4().hex[:6].upper()}"
-        serializer.save(
+        invoice = serializer.save(
             created_by=self.request.user,
             invoice_number=invoice_number,
         )
+        # Auto-generate basic QR code (ZATCA Phase 1 TLV format)
+        self._generate_basic_qr(invoice)
+
+    def _generate_basic_qr(self, invoice):
+        """Generate basic TLV QR code without ZATCA credentials (Phase 1 compatible)."""
+        try:
+            import base64
+            from datetime import datetime, timezone as tz
+
+            tenant = self.request.tenant
+            seller_name = getattr(tenant, 'name_ar', 'Seller')
+            vat_number = getattr(tenant, 'vat_number', '300000000000003')
+
+            def tlv_tag(tag, value_bytes):
+                length = len(value_bytes)
+                if length <= 127:
+                    return bytes([tag, length]) + value_bytes
+                len_bytes = length.to_bytes((length.bit_length() + 7) // 8, "big")
+                return bytes([tag, 0x80 | len(len_bytes)]) + len_bytes + value_bytes
+
+            tlv = b""
+            tlv += tlv_tag(1, seller_name.encode("utf-8"))
+            tlv += tlv_tag(2, vat_number.encode("utf-8"))
+            tlv += tlv_tag(3, datetime.now(tz=tz.utc).isoformat().encode("utf-8"))
+            tlv += tlv_tag(4, str(invoice.total_amount).encode("utf-8"))
+            tlv += tlv_tag(5, str(invoice.vat_amount).encode("utf-8"))
+
+            invoice.qr_code_tlv = base64.b64encode(tlv).decode()
+
+            # Set hijri date
+            try:
+                from hijri_converter import convert
+                hijri = convert.Gregorian(
+                    invoice.issue_date.year,
+                    invoice.issue_date.month,
+                    invoice.issue_date.day,
+                ).to_hijri()
+                invoice.hijri_date = f"{hijri.year:04d}-{hijri.month:02d}-{hijri.day:02d}"
+            except Exception:
+                invoice.hijri_date = ""
+
+            invoice.save(update_fields=["qr_code_tlv", "hijri_date"])
+        except Exception as e:
+            import logging
+            logging.getLogger("apps.zatca").warning(f"QR generation failed: {e}")
 
     @action(detail=True, methods=["post"])
     def process(self, request, pk=None):

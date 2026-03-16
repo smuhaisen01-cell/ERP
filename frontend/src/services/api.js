@@ -73,3 +73,14 @@ export const reportsAPI = {
   getZATCAStatus: (api, params) => api.get('/reports/zatca-status/', { params }),
   getPOSDaily: (api, params) => api.get('/reports/pos-daily/', { params }),
 }
+
+// Users Module
+export const usersAPI = {
+  getUsers: (api) => api.get('/users/'),
+  getUser: (api, id) => api.get(`/users/${id}/`),
+  createUser: (api, data) => api.post('/users/', data),
+  updateUser: (api, id, data) => api.patch(`/users/${id}/`, data),
+  deleteUser: (api, id) => api.delete(`/users/${id}/`),
+  changePassword: (api, id, data) => api.post(`/users/${id}/change_password/`, data),
+  getMe: (api) => api.get('/users/me/'),
+}
