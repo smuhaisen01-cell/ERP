@@ -48,7 +48,7 @@ export default function HRPage() {
         hrAPI.getLeaveTypes(api), hrAPI.getLeaveRequests(api),
         hrAPI.getAttendance(api), hrAPI.getPayrollRuns(api),
         hrAPI.getSaudization(api), hrAPI.getTerminations(api),
-        hrAPI.getAllDocuments(api),
+        hrAPI.getDocuments(api),
       ])
       setData({
         employees: emp.status === 'fulfilled' ? emp.value.data.results || [] : [],
