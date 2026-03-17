@@ -9,7 +9,7 @@ COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci --prefer-offline 2>/dev/null || npm install
 
 COPY frontend/ .
-ARG CACHEBUST=2
+ARG CACHEBUST=3
 RUN npm run build
 
 # ============================================================
