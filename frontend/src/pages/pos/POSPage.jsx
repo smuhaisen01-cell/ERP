@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Minus, Trash2, Search, CreditCard, Banknote, Smartphone, Check, ShoppingBag, Loader2 } from 'lucide-react'
+import { Plus, Minus, Trash2, Search, CreditCard, Banknote, Smartphone, Check, ShoppingBag, Loader2, Printer } from 'lucide-react'
 import { useLang } from '../../contexts/LangContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { posAPI, zatcaAPI } from '../../services/api'
@@ -89,6 +89,7 @@ export default function POSPage() {
   const [loading, setLoading] = useState(false)
   const [session, setSession] = useState(null)
   const [recentSales, setRecentSales] = useState([])
+  const [receipt, setReceipt] = useState(null)
 
   const fmt = (n) => n.toFixed(2)
 
@@ -207,6 +208,22 @@ export default function POSPage() {
       }
 
       // Success
+      const receiptData = {
+        invoice_number: invRes.data.invoice_number,
+        date: new Date().toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-SA'),
+        time: new Date().toLocaleTimeString(lang === 'ar' ? 'ar-SA' : 'en-SA'),
+        items: cart.map(i => ({ name: lang === 'ar' ? i.product.nameAr : i.product.nameEn, qty: i.qty, price: i.product.price, total: i.product.price * i.qty })),
+        subtotal,
+        vat,
+        total,
+        paymentMethod,
+        amountPaid,
+        change: Math.max(0, amountPaid - total),
+        qr: invRes.data.qr_code_tlv || '',
+      }
+
+      setReceipt(receiptData)
+
       setRecentSales(prev => [{
         id: invRes.data.invoice_number,
         total,
@@ -341,6 +358,127 @@ export default function POSPage() {
           loading={loading}
         />
       )}
+
+      {receipt && (
+        <ReceiptModal receipt={receipt} lang={lang} onClose={() => setReceipt(null)} />
+      )}
+    </div>
+  )
+}
+
+function ReceiptModal({ receipt, lang, onClose }) {
+  const fmt = (n) => n.toFixed(2)
+
+  const handlePrint = () => {
+    const el = document.getElementById('pos-receipt')
+    const win = window.open('', '_blank', 'width=400,height=600')
+    win.document.write(`
+      <html><head><title>${receipt.invoice_number}</title>
+      <style>
+        body { font-family: 'Courier New', monospace; width: 300px; margin: 0 auto; padding: 20px; font-size: 12px; }
+        .center { text-align: center; }
+        .bold { font-weight: bold; }
+        .line { border-top: 1px dashed #000; margin: 8px 0; }
+        .row { display: flex; justify-content: space-between; }
+        .qr { text-align: center; margin: 10px 0; }
+        .qr img { width: 150px; height: 150px; }
+        @media print { body { width: 100%; } }
+      </style></head><body>
+        ${el.innerHTML}
+        <script>window.print(); window.close();</script>
+      </body></html>
+    `)
+    win.document.close()
+  }
+
+  const payLabels = {
+    cash: lang === 'ar' ? 'نقدي' : 'Cash',
+    mada: 'Mada',
+    stc_pay: 'STC Pay',
+    credit_card: lang === 'ar' ? 'بطاقة ائتمان' : 'Credit Card',
+    apple_pay: 'Apple Pay',
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-sm p-0 overflow-hidden" onClick={e => e.stopPropagation()}>
+        {/* Receipt Content */}
+        <div id="pos-receipt" className="p-6 text-sm" style={{ fontFamily: "'Courier New', monospace" }}>
+          <div className="text-center mb-3">
+            <div className="text-lg font-bold">{lang === 'ar' ? 'نظام ERP' : 'ERP System'}</div>
+            <div className="text-xs text-slate-500">{lang === 'ar' ? 'فاتورة ضريبية مبسطة' : 'Simplified Tax Invoice'}</div>
+            <div className="text-xs text-slate-400">VAT: 300000000000003</div>
+          </div>
+
+          <div className="border-t border-dashed border-slate-300 my-2"></div>
+
+          <div className="flex justify-between text-xs text-slate-500 mb-2">
+            <span>{receipt.date}</span>
+            <span>{receipt.time}</span>
+          </div>
+
+          <div className="text-xs font-bold mb-2 text-center">{receipt.invoice_number}</div>
+
+          <div className="border-t border-dashed border-slate-300 my-2"></div>
+
+          {/* Items */}
+          <div className="space-y-1.5 mb-2">
+            {receipt.items.map((item, i) => (
+              <div key={i}>
+                <div className="font-medium">{item.name}</div>
+                <div className="flex justify-between text-slate-600">
+                  <span>{item.qty} × {fmt(item.price)}</span>
+                  <span>{fmt(item.total)} SAR</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="border-t border-dashed border-slate-300 my-2"></div>
+
+          {/* Totals */}
+          <div className="space-y-1">
+            <div className="flex justify-between"><span>{lang === 'ar' ? 'المجموع' : 'Subtotal'}</span><span>{fmt(receipt.subtotal)} SAR</span></div>
+            <div className="flex justify-between"><span>{lang === 'ar' ? 'ضريبة 15%' : 'VAT 15%'}</span><span>{fmt(receipt.vat)} SAR</span></div>
+            <div className="border-t border-dashed border-slate-300 my-1"></div>
+            <div className="flex justify-between font-bold text-base"><span>{lang === 'ar' ? 'الإجمالي' : 'TOTAL'}</span><span>{fmt(receipt.total)} SAR</span></div>
+          </div>
+
+          <div className="border-t border-dashed border-slate-300 my-2"></div>
+
+          {/* Payment */}
+          <div className="space-y-1 text-xs">
+            <div className="flex justify-between"><span>{lang === 'ar' ? 'طريقة الدفع' : 'Payment'}</span><span>{payLabels[receipt.paymentMethod] || receipt.paymentMethod}</span></div>
+            {receipt.paymentMethod === 'cash' && <>
+              <div className="flex justify-between"><span>{lang === 'ar' ? 'المدفوع' : 'Paid'}</span><span>{fmt(receipt.amountPaid)} SAR</span></div>
+              {receipt.change > 0 && <div className="flex justify-between font-bold"><span>{lang === 'ar' ? 'الباقي' : 'Change'}</span><span>{fmt(receipt.change)} SAR</span></div>}
+            </>}
+          </div>
+
+          {/* QR Code */}
+          {receipt.qr && (
+            <div className="text-center mt-3">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(receipt.qr)}`}
+                alt="QR" className="w-28 h-28 mx-auto"
+              />
+              <div className="text-[10px] text-slate-400 mt-1">ZATCA QR</div>
+            </div>
+          )}
+
+          <div className="text-center text-xs text-slate-400 mt-3">
+            {lang === 'ar' ? 'شكراً لزيارتكم' : 'Thank you for your visit'}
+          </div>
+        </div>
+
+        {/* Buttons */}
+        <div className="flex gap-2 p-4 border-t bg-slate-50">
+          <button onClick={onClose} className="btn btn-secondary flex-1">{lang === 'ar' ? 'إغلاق' : 'Close'}</button>
+          <button onClick={handlePrint} className="btn btn-primary flex-1 flex items-center justify-center gap-2">
+            <Printer size={16} /> {lang === 'ar' ? 'طباعة' : 'Print'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

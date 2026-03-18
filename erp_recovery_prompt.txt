@@ -109,3 +109,6 @@ Check tables: \dt t_300000000000003.*
 Check employees: SELECT id, name_en, user_id FROM t_300000000000003.hr_employee;
 Check invoices: SELECT invoice_number, qr_code_tlv FROM t_300000000000003.zatca_taxinvoice ORDER BY created_at DESC LIMIT 5;
 Link user to employee: UPDATE t_300000000000003.hr_employee SET user_id = [USER_ID] WHERE id = [EMP_ID];
+
+
+RBAC is implemented with 5 roles: super_admin, hr_manager, accountant, pos_cashier, employee. Roles stored in tenants_userprofile table. Backend enforces via DRF permission classes in rbac.py. Frontend hides sidebar items based on user.modules from /api/users/me/. Settings page has role dropdown per user.
