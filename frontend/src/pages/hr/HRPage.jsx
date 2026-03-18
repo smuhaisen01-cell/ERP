@@ -3,7 +3,7 @@ import { Plus, Search, Users, Loader2, RefreshCw, Check, X, Download, Clock, Fil
 import { useLang } from '../../contexts/LangContext'
 import { useAuth } from '../../contexts/AuthContext'
 import toast from 'react-hot-toast'
-
+import { useState, useEffect } from 'react'
 const TABS = [
   { id: 'employees', labelAr: 'الموظفون', labelEn: 'Employees' },
   { id: 'leave', labelAr: 'الإجازات', labelEn: 'Leave' },
@@ -356,7 +356,7 @@ export default function HRPage() {
       )}
       {modal?.type === 'add_leave' && (
         <Modal onClose={() => setModal(null)} title={lang === 'ar' ? 'طلب إجازة' : 'Leave Request'}>
-          <AddLeaveForm employees={employees} leaveTypes={leaveTypes} lang={lang} onSave={submitLeave} onClose={() => setModal(null)} />
+          <AddLeaveForm employees={employees} leaveTypes={leaveTypes} lang={lang} onSave={submitLeave} onClose={() => setModal(null)} api={api} />
         </Modal>
       )}
       {modal?.type === 'add_term' && (
@@ -443,9 +443,26 @@ function AddEmployeeForm({ departments, lang, onSave, onClose }) {
     </div>
   )
 }
+function AddLeaveForm({ employees, leaveTypes, lang, onSave, onClose, api }) {
+  const [f, setF] = useState({ employee: '', leave_type: leaveTypes[0]?.id || '', start_date: '', end_date: '', days: '', reason: '' })
+  const [isAdmin, setIsAdmin] = useState(false)
 
-function AddLeaveForm({ employees, leaveTypes, lang, onSave, onClose }) {
-  const [f, setF] = useState({ employee: employees[0]?.id || '', leave_type: leaveTypes[0]?.id || '', start_date: '', end_date: '', days: '', reason: '' })
+  useEffect(() => {
+    const detectUser = async () => {
+      try {
+        const me = await api.get('/users/me/')
+        const myUser = me.data
+        setIsAdmin(myUser.is_staff)
+        const linked = employees.find(e => e.employee_number && myUser.id)
+        if (linked) setF(prev => ({ ...prev, employee: linked.id }))
+        else if (employees.length > 0) setF(prev => ({ ...prev, employee: employees[0].id }))
+      } catch {
+        if (employees.length > 0) setF(prev => ({ ...prev, employee: employees[0].id }))
+      }
+    }
+    detectUser()
+  }, [employees])
+
   const s = (k, v) => {
     const updated = { ...f, [k]: v }
     if ((k === 'start_date' || k === 'end_date') && updated.start_date && updated.end_date) {
@@ -456,9 +473,10 @@ function AddLeaveForm({ employees, leaveTypes, lang, onSave, onClose }) {
   }
   return (
     <div className="space-y-3">
-      <select className="input" value={f.employee} onChange={e => s('employee', e.target.value)}>
+      <select className="input" value={f.employee} onChange={e => s('employee', e.target.value)} disabled={!isAdmin}>
         {employees.map(e => <option key={e.id} value={e.id}>{e.name_ar} ({e.employee_number})</option>)}
       </select>
+      {!isAdmin && <p className="text-xs text-slate-400">{lang === 'ar' ? 'يتم تحديد الموظف تلقائياً' : 'Employee auto-selected based on your account'}</p>}
       <select className="input" value={f.leave_type} onChange={e => s('leave_type', e.target.value)}>
         {leaveTypes.map(t => <option key={t.id} value={t.id}>{lang === 'ar' ? t.name_ar : t.name_en}</option>)}
       </select>
