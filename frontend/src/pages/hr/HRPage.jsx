@@ -351,7 +351,7 @@ export default function HRPage() {
 
       {modal?.type === 'add_employee' && (
         <Modal onClose={() => setModal(null)} title={lang === 'ar' ? 'إضافة موظف' : 'Add Employee'}>
-          <AddEmployeeForm departments={departments} lang={lang} onSave={addEmployee} onClose={() => setModal(null)} />
+          <AddEmployeeForm departments={departments} lang={lang} onSave={addEmployee} onClose={() => setModal(null)} api={api} />
         </Modal>
       )}
       {modal?.type === 'add_leave' && (
@@ -415,8 +415,15 @@ export default function HRPage() {
   )
 }
 
-function AddEmployeeForm({ departments, lang, onSave, onClose }) {
-  const [f, setF] = useState({ name_ar: '', name_en: '', nationality: 'saudi', job_title_ar: '', department: departments[0]?.id || '', hire_date: new Date().toISOString().split('T')[0], basic_salary: '', housing_allowance: '0', transport_allowance: '0', bank_name: '', iban: '' })
+function AddEmployeeForm({ departments, lang, onSave, onClose, api }) {
+  const [f, setF] = useState({ name_ar: '', name_en: '', nationality: 'saudi', job_title_ar: '', department: departments[0]?.id || '', hire_date: new Date().toISOString().split('T')[0], basic_salary: '', housing_allowance: '0', transport_allowance: '0', bank_name: '', iban: '', user: '' })
+  const [users, setUsers] = useState([])
+  useEffect(() => {
+    const load = async () => {
+      try { const res = await api.get('/users/'); setUsers(res.data.results || []) } catch {}
+    }
+    load()
+  }, [])
   const s = (k, v) => setF(p => ({ ...p, [k]: v }))
   return (
     <div className="space-y-3">
@@ -436,9 +443,13 @@ function AddEmployeeForm({ departments, lang, onSave, onClose }) {
         <input className="input" placeholder={lang === 'ar' ? 'البنك' : 'Bank'} value={f.bank_name} onChange={e => s('bank_name', e.target.value)} />
         <input className="input" placeholder="IBAN" value={f.iban} onChange={e => s('iban', e.target.value)} dir="ltr" />
       </div>
+      <select className="input" value={f.user} onChange={e => s('user', e.target.value)}>
+        <option value="">{lang === 'ar' ? '— ربط بحساب مستخدم (اختياري) —' : '— Link to user account (optional) —'}</option>
+        {users.map(u => <option key={u.id} value={u.id}>{u.username} ({u.email})</option>)}
+      </select>
       <div className="flex gap-3 justify-end">
         <button className="btn btn-secondary" onClick={onClose}>{lang === 'ar' ? 'إلغاء' : 'Cancel'}</button>
-        <button className="btn btn-primary" onClick={() => onSave(f)}>{lang === 'ar' ? 'حفظ' : 'Save'}</button>
+        <button className="btn btn-primary" onClick={() => { const data = {...f}; if (!data.user) delete data.user; onSave(data) }}>{lang === 'ar' ? 'حفظ' : 'Save'}</button>
       </div>
     </div>
   )
@@ -447,21 +458,18 @@ function AddLeaveForm({ employees, leaveTypes, lang, onSave, onClose, api }) {
   const [f, setF] = useState({ employee: '', leave_type: leaveTypes[0]?.id || '', start_date: '', end_date: '', days: '', reason: '' })
   const [isAdmin, setIsAdmin] = useState(false)
 
-  useEffect(() => {
-    const detectUser = async () => {
+useEffect(() => {
+    const detect = async () => {
       try {
         const me = await api.get('/users/me/')
-        const myUser = me.data
-        setIsAdmin(myUser.is_staff)
-        const linked = employees.find(e => e.employee_number && myUser.id)
-        if (linked) setF(prev => ({ ...prev, employee: linked.id }))
-        else if (employees.length > 0) setF(prev => ({ ...prev, employee: employees[0].id }))
-      } catch {
-        if (employees.length > 0) setF(prev => ({ ...prev, employee: employees[0].id }))
-      }
+        setCanChange(me.data.is_staff)
+        // Find employee linked to current user
+        const myEmp = employees.find(e => String(e.user) === String(me.data.id))
+        if (myEmp) setF(prev => ({ ...prev, employee: myEmp.id }))
+      } catch {}
     }
-    detectUser()
-  }, [employees])
+    detect()
+  }, []) 
 
   const s = (k, v) => {
     const updated = { ...f, [k]: v }
