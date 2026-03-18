@@ -24,8 +24,6 @@ const translations = {
     quickActions: 'إجراءات سريعة',
     newInvoice: 'فاتورة جديدة',
     runPayroll: 'معالجة الرواتب',
-    vatReturn: 'إقرار ضريبي',
-    inventory: 'المخزون',
 
     // Auth
     signIn: 'تسجيل الدخول',
@@ -111,8 +109,6 @@ const translations = {
     quickActions: 'Quick Actions',
     newInvoice: 'New Invoice',
     runPayroll: 'Run Payroll',
-    vatReturn: 'VAT Return',
-    inventory: 'Inventory',
 
     // Auth
     signIn: 'Sign In',

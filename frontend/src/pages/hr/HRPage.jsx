@@ -3,7 +3,7 @@ import { Plus, Search, Users, Loader2, RefreshCw, Check, X, Download, Clock, Fil
 import { useLang } from '../../contexts/LangContext'
 import { useAuth } from '../../contexts/AuthContext'
 import toast from 'react-hot-toast'
-import { useState, useEffect } from 'react'
+
 const TABS = [
   { id: 'employees', labelAr: 'الموظفون', labelEn: 'Employees' },
   { id: 'leave', labelAr: 'الإجازات', labelEn: 'Leave' },
