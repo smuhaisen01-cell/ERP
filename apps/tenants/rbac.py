@@ -82,9 +82,9 @@ class IsHRManagerOrAdmin(BasePermission):
 
 
 class IsAccountantOrAdmin(BasePermission):
-    """Accountant or super admin."""
+    """Accountant, POS cashier (for auto-invoices), or super admin."""
     def has_permission(self, request, view):
-        return get_user_role(request.user) in ("super_admin", "accountant")
+        return get_user_role(request.user) in ("super_admin", "accountant", "pos_cashier")
 
 
 class IsPOSCashierOrAdmin(BasePermission):
