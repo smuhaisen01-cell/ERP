@@ -137,6 +137,13 @@ export default function LoginPage() {
               }
             </button>
           </form>
+
+          <p className="text-center text-sm text-slate-500 mt-6">
+            {lang === 'ar' ? 'ليس لديك حساب؟' : "Don't have an account?"}{' '}
+            <a href="/app/signup" className="text-brand-600 font-semibold hover:underline">
+              {lang === 'ar' ? 'سجّل شركتك' : 'Register your company'}
+            </a>
+          </p>
         </div>
       </div>
     </div>

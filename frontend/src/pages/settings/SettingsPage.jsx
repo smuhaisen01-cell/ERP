@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Building2, Shield, Key, Globe, Users, Plus, Loader2, Trash2 } from 'lucide-react'
+import { Building2, Shield, Key, Globe, Users, Plus, Loader2, Trash2, Server } from 'lucide-react'
 import { useLang } from '../../contexts/LangContext'
 import { useAuth } from '../../contexts/AuthContext'
 import toast from 'react-hot-toast'
@@ -199,6 +199,111 @@ export default function SettingsPage() {
       </div>
 
       {showAddUser && <AddUserModal onClose={() => setShowAddUser(false)} onSave={handleAddUser} lang={lang} loading={saving} />}
+
+      {/* Super-Admin: Tenant Management */}
+      {user?.is_superuser && <TenantPanel lang={lang} api={api} />}
+    </div>
+  )
+}
+
+function TenantPanel({ lang, api }) {
+  const [tenants, setTenants] = useState([])
+  const [stats, setStats] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  const fetchTenants = async () => {
+    setLoading(true)
+    try {
+      const [tRes, sRes] = await Promise.allSettled([
+        api.get('/public/tenants/'),
+        api.get('/public/tenants/stats/'),
+      ])
+      if (tRes.status === 'fulfilled') setTenants(tRes.value.data.results || [])
+      if (sRes.status === 'fulfilled') setStats(sRes.value.data)
+    } catch {}
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => { fetchTenants() }, [])
+
+  const toggleActive = async (id, isActive) => {
+    try {
+      await api.post(`/public/tenants/${id}/${isActive ? 'deactivate' : 'activate'}/`)
+      toast.success(isActive ? 'Deactivated' : 'Activated')
+      fetchTenants()
+    } catch { toast.error('Error') }
+  }
+
+  const changePlan = async (id, plan) => {
+    try {
+      await api.post(`/public/tenants/${id}/change_plan/`, { plan })
+      toast.success('Plan changed')
+      fetchTenants()
+    } catch { toast.error('Error') }
+  }
+
+  return (
+    <div className="card">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center"><Server size={20} /></div>
+          <h2 className="text-lg font-semibold">{lang === 'ar' ? 'إدارة الشركات (المستأجرين)' : 'Tenant Management'}</h2>
+        </div>
+      </div>
+
+      {stats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          <div className="bg-blue-50 rounded-xl p-3"><div className="text-xs text-blue-600">{lang === 'ar' ? 'إجمالي' : 'Total'}</div><div className="text-xl font-bold">{stats.total_tenants}</div></div>
+          <div className="bg-green-50 rounded-xl p-3"><div className="text-xs text-green-600">{lang === 'ar' ? 'نشط' : 'Active'}</div><div className="text-xl font-bold">{stats.active_tenants}</div></div>
+          <div className="bg-yellow-50 rounded-xl p-3"><div className="text-xs text-yellow-600">Starter</div><div className="text-xl font-bold">{stats.by_plan?.starter || 0}</div></div>
+          <div className="bg-purple-50 rounded-xl p-3"><div className="text-xs text-purple-600">Growth</div><div className="text-xl font-bold">{stats.by_plan?.growth || 0}</div></div>
+        </div>
+      )}
+
+      {loading ? <div className="flex justify-center py-6"><Loader2 size={24} className="animate-spin text-brand-500" /></div> : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr className="border-b">
+              <th className="text-start py-2 px-2 font-medium text-slate-500">{lang === 'ar' ? 'الشركة' : 'Company'}</th>
+              <th className="text-start py-2 px-2 font-medium text-slate-500">VAT</th>
+              <th className="text-start py-2 px-2 font-medium text-slate-500">{lang === 'ar' ? 'النطاق' : 'Domain'}</th>
+              <th className="text-start py-2 px-2 font-medium text-slate-500">{lang === 'ar' ? 'الخطة' : 'Plan'}</th>
+              <th className="text-start py-2 px-2 font-medium text-slate-500">{lang === 'ar' ? 'الحالة' : 'Status'}</th>
+              <th className="py-2 px-2"></th>
+            </tr></thead>
+            <tbody>{tenants.map(t => (
+              <tr key={t.id} className="border-b border-slate-100 hover:bg-slate-50">
+                <td className="py-2.5 px-2">
+                  <div className="font-medium">{t.name_en}</div>
+                  <div className="text-xs text-slate-400">{t.schema_name}</div>
+                </td>
+                <td className="py-2.5 px-2 font-mono text-xs">{t.vat_number}</td>
+                <td className="py-2.5 px-2 font-mono text-xs text-brand-600">{t.domain}</td>
+                <td className="py-2.5 px-2">
+                  <select className="text-xs border rounded px-1 py-0.5" value={t.plan}
+                    onChange={e => changePlan(t.id, e.target.value)}>
+                    <option value="starter">Starter</option>
+                    <option value="growth">Growth</option>
+                    <option value="enterprise">Enterprise</option>
+                  </select>
+                </td>
+                <td className="py-2.5 px-2">
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${t.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                    {t.is_active ? (lang === 'ar' ? 'نشط' : 'Active') : (lang === 'ar' ? 'معطل' : 'Inactive')}
+                  </span>
+                </td>
+                <td className="py-2.5 px-2">
+                  <button onClick={() => toggleActive(t.id, t.is_active)}
+                    className={`text-xs px-2 py-1 rounded ${t.is_active ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}>
+                    {t.is_active ? (lang === 'ar' ? 'تعطيل' : 'Deactivate') : (lang === 'ar' ? 'تفعيل' : 'Activate')}
+                  </button>
+                </td>
+              </tr>
+            ))}</tbody>
+          </table>
+          {tenants.length === 0 && <p className="text-center py-6 text-slate-400">{lang === 'ar' ? 'لا توجد شركات' : 'No tenants'}</p>}
+        </div>
+      )}
     </div>
   )
 }

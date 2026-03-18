@@ -1,69 +1,65 @@
 """
-Custom tenant middleware.
+Multi-tenant middleware — subdomain + custom domain routing.
 
-Key behaviour:
-- Health check + admin + static paths → set schema to public WITHOUT any DB query.
-  This is critical: Railway's health prober hits the container before any tenant
-  exists in the DB, so any ORM query will fail on first deploy.
-- All other paths → delegate to TenantMainMiddleware (subdomain resolution).
-- Unknown domains → fall back to public schema instead of raising 404.
+Routing logic:
+- Health/static/admin/signup → public schema (no DB query)
+- /api/public/* → public schema (super-admin tenant management)
+- Everything else → resolve tenant from Domain table via hostname
+- Unknown domain → public schema (shows landing page)
+
+Subdomain example: company1.erp.sa → Tenant with domain "company1.erp.sa"
+Custom domain: erp.mycompany.com → Tenant with domain "erp.mycompany.com"
 """
 from django.db import connection
 from django_tenants.middleware.main import TenantMainMiddleware
 from django_tenants.utils import get_public_schema_name
 
 
-# Paths that must NEVER trigger a DB query for tenant resolution.
-# Health check must work even when the DB is empty (first deploy).
-BYPASS_PATHS = (
-    "/app/health/",
+# Paths that NEVER trigger tenant DB lookup
+PUBLIC_PATHS = (
     "/health/",
-    "/admin/",
+    "/app/health/",
     "/static/",
+    "/admin/",
     "/accounts/",
     "/favicon.ico",
-    "/app/", 
     "/favicon.svg",
-    "/assets/",     # ← ADD THIS
-    
-
+    "/assets/",
+    "/api/public/",   # Super-admin APIs (public schema)
+    "/signup/",
+    "/landing/",
 )
 
 
 class ERPTenantMiddleware(TenantMainMiddleware):
     """
-    Extends TenantMainMiddleware with two safety behaviours:
-    1. Exempt paths get the public schema without ANY database query.
-    2. Unknown tenant domains fall back to public schema (no 404 crash).
+    Extends TenantMainMiddleware:
+    1. Public paths → public schema without DB query
+    2. Tenant paths → resolve from Domain table
+    3. Unknown domains → public schema (landing page)
     """
 
     def process_request(self, request):
         path = request.path_info
 
-        # ── Fast path: bypass tenant resolution entirely ──────────────────
-        if any(path.startswith(p) for p in BYPASS_PATHS):
-            # Set schema to public at the DB connection level — no ORM query.
+        # ── Public paths: bypass tenant resolution ─────────────
+        if any(path.startswith(p) for p in PUBLIC_PATHS):
             connection.set_schema_to_public()
-            # Attach a minimal fake tenant object so downstream code doesn't crash
-            # when it tries to read request.tenant.
             request.tenant = _PublicTenantProxy()
-            return None  # Continue to next middleware
+            return None
 
-        # ── Normal path: let TenantMainMiddleware do subdomain lookup ─────
+        # ── Tenant resolution via domain lookup ────────────────
         try:
             return super().process_request(request)
         except self.TENANT_NOT_FOUND_EXCEPTION:
-            # Unknown subdomain → serve public schema (API discovery, etc.)
+            # Unknown domain → public schema
             connection.set_schema_to_public()
             request.tenant = _PublicTenantProxy()
             return None
 
 
 class _PublicTenantProxy:
-    """
-    Minimal stand-in for a Tenant object when no real tenant is resolved.
-    Prevents AttributeError on request.tenant.schema_name etc.
-    """
+    """Minimal stand-in when no tenant resolved."""
     schema_name = "public"
     name_ar = "Public"
     name_en = "Public"

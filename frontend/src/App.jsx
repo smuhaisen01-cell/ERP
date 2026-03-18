@@ -13,6 +13,7 @@ import InventoryPage from './pages/inventory/InventoryPage'
 
 import SettingsPage from './pages/settings/SettingsPage'
 import ReportsPage from './pages/reports/ReportsPage'
+import SignupPage from './pages/signup/SignupPage'
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuth()
@@ -26,6 +27,7 @@ export default function App() {
         <BrowserRouter basename="/app">
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
             <Route path="/*" element={
               <ProtectedRoute>
                 <AppShell>

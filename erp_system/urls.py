@@ -45,6 +45,9 @@ urlpatterns = [
     path("health/", health_check, name="health_root"),
     path("app/health/", health_check, name="health"),
 
+    # ─── Public API (no tenant resolution) ──────────────────
+    path("api/public/", include("apps.tenants.public_urls")),
+
     # ─── Authentication (JWT) ─────────────────────────────────
     path("api/auth/token/", TokenObtainPairView.as_view(), name="token_obtain"),
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
