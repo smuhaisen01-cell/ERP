@@ -1,0 +1,111 @@
+═══════════════════════════════════════════════════════════════
+SAUDI AI-ERP SAAS — RECOVERY PROMPT FOR NEW CLAUDE CHAT
+═══════════════════════════════════════════════════════════════
+Copy everything below into a new Claude chat to restore full context.
+═══════════════════════════════════════════════════════════════
+
+You are helping me build and maintain a Saudi AI-ERP SaaS platform. Here is the full system context:
+
+## SYSTEM OVERVIEW
+- **Product**: Multi-tenant ERP for Saudi SMEs with ZATCA Phase 2 compliance
+- **Live URL**: https://erp-production-7d8b.up.railway.app/app/
+- **Admin Login**: admin / Jori1405! (admin@erp.sa)
+- **Other Users**: ali@erp.sa, sam@erp.sa, sam1@erp.sa
+- **Tenant Schema**: t_300000000000003 (VAT: 300000000000003)
+- **Repo**: github.com/smuhaisen01-cell/ERP
+
+## TECH STACK
+- **Backend**: Django 4.2, django-tenants (schema-per-tenant PostgreSQL), DRF, Daphne ASGI
+- **Frontend**: React 18 SPA, Vite, Tailwind CSS, bilingual Arabic/English with RTL/LTR
+- **Database**: PostgreSQL 17 on Railway
+- **Async**: Celery + Redis (not yet deployed as separate services)
+- **AI**: Anthropic Claude Sonnet — read-only (4 enforcement layers)
+- **Static**: WhiteNoise CompressedStaticFilesStorage
+- **Deployment**: Railway at erp-production-7d8b.up.railway.app
+
+## CONSTRAINT
+I work on Windows without Django installed locally. All migration generation and DB management happens inside Railway containers or via psql.
+
+## RAILWAY START COMMAND
+sh -c "python manage.py makemigrations tenants billing zatca accounting sales inventory hr pos ai --noinput; python manage.py migrate_schemas --shared; python manage.py migrate_schemas --tenant; python manage.py seed_socpa_coa --all; python manage.py collectstatic --noinput; daphne -b 0.0.0.0 -p $PORT erp_system.asgi:application"
+
+## RAILWAY ENV VARS
+SECRET_KEY, DATABASE_URL (auto), REDIS_URL (auto), DJANGO_SETTINGS_MODULE=erp_system.settings_production, ALLOWED_HOSTS=erp-production-7d8b.up.railway.app, ENVIRONMENT=production, AI_BACKEND=anthropic, DJANGO_SUPERUSER_PASSWORD=Jori1405!, DJANGO_SUPERUSER_EMAIL=admin@erp.sa
+
+## DJANGO APPS (9 apps)
+- apps.tenants (SHARED) — Tenant + Domain, user management API
+- apps.billing (SHARED) — Subscription plans
+- apps.accounting (TENANT) — SOCPA CoA, Journal Entries, VAT/Zakat, Reports API
+- apps.zatca (TENANT) — TaxInvoice + lines, QR TLV, chain hash, CSID
+- apps.hr (TENANT) — Employee, Leave, Attendance, Payroll, EOSB, WPS, Documents, Saudization
+- apps.pos (TENANT) — Branch, Terminal, Session, Transaction + auto ZATCA invoice
+- apps.sales (TENANT) — scaffold
+- apps.inventory (TENANT) — scaffold
+- apps.ai (TENANT) — scaffold
+
+## WORKING FEATURES
+1. Multi-tenant schema isolation
+2. JWT Auth (24h access token, 7d refresh)
+3. ZATCA B2B (388) + B2C (386) invoicing with auto QR code (TLV tags 1-5) + Hijri date
+4. POS sales → auto ZATCA B2C invoice + QR + GL journal entry
+5. Accounting — SOCPA Chart of Accounts (63 accounts), Journal Entries auto-created
+6. 7 Reports — Trial Balance, Income Statement, Balance Sheet, VAT-103, HR Summary, ZATCA Status, POS Daily Sales
+7. HR — 7 tabs: Employees (with user linking), Leave (approve/reject), Attendance (bulk checkin), Payroll (calculate→approve→pay with GL), Termination (EOSB + GL), Documents, Saudization (Nitaqat)
+8. User Management — create/delete users from Settings page
+9. Frontend — All pages connected to live API, bilingual AR/EN
+
+## DATA FLOW
+- POS Sale → ZATCA Invoice (B2C + QR) → GL Journal Entry → All Reports Updated
+- Invoice Creation → QR generated in serializer create() → GL Entry (Debit AR 1121, Credit Revenue 4100, Credit VAT 2120)
+- Payroll Pay → GL Entry (Debit Salary Exp 6100 + GOSI Exp 6110, Credit Salary Payable 2150 + GOSI Payable 2140)
+- Termination → EOSB + Leave Payout → GL Entry (Debit EOSB Liability 2220, Credit Cash 1112)
+
+## API ENDPOINTS
+Auth: POST /api/auth/token/, POST /api/auth/token/refresh/
+ZATCA: GET/POST /api/zatca/invoices/, GET /api/zatca/invoices/{id}/
+HR: /api/hr/employees/, /api/hr/departments/, /api/hr/leave-types/, /api/hr/leave-requests/, /api/hr/attendance/, /api/hr/payroll-runs/, /api/hr/terminations/, /api/hr/documents/, /api/hr/saudization/
+POS: /api/pos/terminals/setup_default/, /api/pos/sessions/, /api/pos/transactions/
+Accounting: /api/accounting/chart-of-accounts/, /api/accounting/journal-entries/
+Reports: /api/reports/trial-balance/, /api/reports/income-statement/, /api/reports/balance-sheet/, /api/reports/vat-103/, /api/reports/hr-summary/, /api/reports/zatca-status/, /api/reports/pos-daily/
+Users: /api/users/, /api/users/me/
+
+## CRITICAL LESSONS LEARNED
+1. Django-tenants migrations are fragile — when they fail, create tables MANUALLY via psql
+2. The "django_content_type already exists" error blocks tenant migrations — mark as applied manually
+3. save(update_fields=[...]) fails silently — generate QR inside serializer create() instead
+4. HR page uses direct api.get() calls, NOT imports from services/api.js (avoids function name mismatches)
+5. Each API call wrapped in safe() so one failure can't crash entire page
+6. Frontend JS caching is aggressive — increment Dockerfile CACHEBUST arg and test in incognito
+7. ${PORT:-8080} doesn't work in Railway — use sh -c "... $PORT ..."
+8. WhiteNoise must be before tenant middleware in MIDDLEWARE order
+9. Decimal('1/3') = 0 in Python — use Decimal('1') / Decimal('3')
+10. POS invoices generate QR in _create_zatca_invoice() method, not in serializer
+
+## KEY FILES
+- erp_system/settings.py — Base settings + SIMPLE_JWT config at bottom
+- erp_system/urls.py — All API URL routing
+- apps/zatca/views.py — Invoice API + QR in perform_create + auto GL
+- apps/zatca/serializers.py — QR generated inside create() method
+- apps/hr/views.py — Full HR API with payroll GL, EOSB GL, WPS export
+- apps/pos/views.py — POS + setup_default + _create_zatca_invoice with QR
+- apps/accounting/reports.py — 7 report views
+- apps/tenants/user_views.py — User CRUD API
+- frontend/src/pages/hr/HRPage.jsx — Uses direct api.get(), no service imports
+- frontend/src/pages/invoicing/InvoicingPage.jsx — Invoice detail modal with QR
+- Dockerfile — Multi-stage Node→Python, CACHEBUST arg for cache busting
+
+## PENDING ITEMS
+- Custom domain for multi-tenancy
+- ZATCA sandbox API submission
+- Celery worker + Beat as separate Railway services
+- PDF payslip/invoice generation
+- CI/CD pipeline
+- Inventory + Sales modules
+- AI analytics dashboard
+
+## PSQL QUICK REFERENCE
+Connect: Railway dashboard → PostgreSQL → Connect tab
+Check tables: \dt t_300000000000003.*
+Check employees: SELECT id, name_en, user_id FROM t_300000000000003.hr_employee;
+Check invoices: SELECT invoice_number, qr_code_tlv FROM t_300000000000003.zatca_taxinvoice ORDER BY created_at DESC LIMIT 5;
+Link user to employee: UPDATE t_300000000000003.hr_employee SET user_id = [USER_ID] WHERE id = [EMP_ID];

@@ -18,16 +18,15 @@ from .serializers import (
     ZATCAInvoiceLogSerializer,
     TenantZATCACredentialSerializer,
 )
+from apps.tenants.rbac import IsAccountantOrAdmin
 
 
 class TaxInvoiceViewSet(viewsets.ModelViewSet):
     """
-    Tax Invoice management.
-    POST /api/zatca/invoices/ — create invoice
-    POST /api/zatca/invoices/{id}/process/ — sign, hash, QR
-    POST /api/zatca/invoices/{id}/submit/ — submit to ZATCA
+    Tax Invoice management. RBAC: Accountant + Admin only.
     """
     queryset = TaxInvoice.objects.prefetch_related("lines").all()
+    permission_classes = [IsAccountantOrAdmin]
     filterset_fields = ["invoice_type", "zatca_status", "issue_date", "is_cancelled"]
     search_fields = ["invoice_number", "buyer_name_ar", "buyer_vat_number"]
     ordering_fields = ["issue_date", "created_at", "total_amount"]

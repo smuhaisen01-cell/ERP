@@ -1,5 +1,5 @@
 """
-HR API viewsets — complete module.
+HR API viewsets — complete module with RBAC.
 Payroll, Leave, Attendance, WPS, Termination, Documents, Saudization.
 """
 import io
@@ -14,6 +14,8 @@ from django.utils import timezone
 from rest_framework import viewsets, status, mixins
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from apps.tenants.rbac import IsHRManagerOrAdmin, IsEmployeeOrAbove, get_user_role
 
 from .models import (
     Department, Employee, LeaveType, LeaveRequest, Attendance,
@@ -35,6 +37,11 @@ class DepartmentViewSet(viewsets.ModelViewSet):
     serializer_class = DepartmentSerializer
     search_fields = ["name_ar", "name_en", "cost_center"]
 
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsHRManagerOrAdmin()]
+        return [IsAuthenticated()]
+
 
 class EmployeeViewSet(viewsets.ModelViewSet):
     queryset = Employee.objects.select_related("department").all()
@@ -42,6 +49,18 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     search_fields = ["employee_number", "name_ar", "name_en", "national_id"]
     ordering_fields = ["name_ar", "hire_date", "basic_salary"]
     ordering = ["name_ar"]
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsHRManagerOrAdmin()]
+        return [IsAuthenticated()]
+
+    def get_queryset(self):
+        role = get_user_role(self.request.user)
+        if role in ('super_admin', 'hr_manager'):
+            return Employee.objects.select_related("department").all()
+        # Employees only see themselves
+        return Employee.objects.select_related("department").filter(user=self.request.user)
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -124,6 +143,17 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
     filterset_fields = ["employee", "leave_type", "status"]
     ordering = ["-created_at"]
 
+    def get_permissions(self):
+        if self.action in ['approve', 'reject']:
+            return [IsHRManagerOrAdmin()]
+        return [IsAuthenticated()]
+
+    def get_queryset(self):
+        role = get_user_role(self.request.user)
+        if role in ('super_admin', 'hr_manager'):
+            return LeaveRequest.objects.select_related("employee", "leave_type").all()
+        return LeaveRequest.objects.select_related("employee", "leave_type").filter(employee__user=self.request.user)
+
     @action(detail=True, methods=["post"])
     def approve(self, request, pk=None):
         leave = self.get_object()
@@ -188,6 +218,7 @@ class PayrollRunViewSet(viewsets.ModelViewSet):
     queryset = PayrollRun.objects.all()
     filterset_fields = ["status", "period_year"]
     ordering = ["-period_year", "-period_month"]
+    permission_classes = [IsHRManagerOrAdmin]
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -426,6 +457,7 @@ class TerminationSettlementViewSet(viewsets.ModelViewSet):
     queryset = TerminationSettlement.objects.select_related("employee").all()
     serializer_class = TerminationSettlementSerializer
     ordering = ["-created_at"]
+    permission_classes = [IsHRManagerOrAdmin]
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)

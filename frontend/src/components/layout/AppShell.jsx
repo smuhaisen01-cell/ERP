@@ -9,14 +9,17 @@ import { useLang } from '../../contexts/LangContext'
 import { useAuth } from '../../contexts/AuthContext'
 
 const NAV = [
-  { key: 'dashboard',  icon: LayoutDashboard, path: '/dashboard' },
-  { key: 'invoicing',  icon: FileText,         path: '/invoicing' },
-  { key: 'pos',        icon: ShoppingCart,      path: '/pos' },
-  { key: 'hr',         icon: Users,             path: '/hr' },
-  { key: 'accounting', icon: BookOpen,          path: '/accounting' },
-  { key: 'inventory',  icon: Package,           path: '/inventory' },
-  { key: 'reports',    icon: FileBarChart,      path: '/reports' },
+  { key: 'dashboard',  icon: LayoutDashboard, path: '/dashboard',  module: 'dashboard' },
+  { key: 'invoicing',  icon: FileText,         path: '/invoicing',  module: 'invoicing' },
+  { key: 'pos',        icon: ShoppingCart,      path: '/pos',        module: 'pos' },
+  { key: 'hr',         icon: Users,             path: '/hr',         module: 'hr' },
+  { key: 'accounting', icon: BookOpen,          path: '/accounting', module: 'accounting' },
+  { key: 'inventory',  icon: Package,           path: '/inventory',  module: 'inventory' },
+  { key: 'reports',    icon: FileBarChart,      path: '/reports',    module: 'reports' },
 ]
+
+// hr_self employees can see HR (limited) but label it differently
+const MODULE_ALIAS = { hr_self: 'hr' }
 
 function Sidebar({ open, onClose }) {
   const { t, toggle, lang } = useLang()
@@ -25,9 +28,27 @@ function Sidebar({ open, onClose }) {
 
   const handleLogout = () => { logout(); navigate('/login') }
 
+  // Get user's allowed modules
+  const modules = user?.modules || ['dashboard']
+  const expandedModules = modules.map(m => MODULE_ALIAS[m] || m)
+  const isAdmin = user?.role === 'super_admin'
+
+  // Filter nav items based on role
+  const visibleNav = NAV.filter(item => expandedModules.includes(item.module))
+
+  // Role badge
+  const roleBadge = {
+    super_admin: { label: lang === 'ar' ? 'مدير النظام' : 'Admin', color: 'bg-red-500/20 text-red-300' },
+    hr_manager: { label: lang === 'ar' ? 'مدير HR' : 'HR Manager', color: 'bg-blue-500/20 text-blue-300' },
+    accountant: { label: lang === 'ar' ? 'محاسب' : 'Accountant', color: 'bg-green-500/20 text-green-300' },
+    pos_cashier: { label: lang === 'ar' ? 'كاشير' : 'Cashier', color: 'bg-yellow-500/20 text-yellow-300' },
+    employee: { label: lang === 'ar' ? 'موظف' : 'Employee', color: 'bg-slate-500/20 text-slate-300' },
+  }
+
+  const badge = roleBadge[user?.role] || roleBadge.employee
+
   return (
     <>
-      {/* Overlay (mobile) */}
       {open && (
         <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={onClose} />
       )}
@@ -54,9 +75,9 @@ function Sidebar({ open, onClose }) {
           </button>
         </div>
 
-        {/* Nav */}
+        {/* Nav — filtered by role */}
         <nav className="flex-1 py-3 overflow-y-auto">
-          {NAV.map(({ key, icon: Icon, path }) => (
+          {visibleNav.map(({ key, icon: Icon, path }) => (
             <NavLink
               key={key}
               to={path}
@@ -71,19 +92,17 @@ function Sidebar({ open, onClose }) {
 
         {/* Bottom */}
         <div className="p-3 border-t border-white/10 space-y-1">
-          {/* Language toggle */}
-          <button
-            onClick={toggle}
-            className="nav-item w-full text-start"
-          >
+          <button onClick={toggle} className="nav-item w-full text-start">
             <Globe size={18} />
             <span>{lang === 'ar' ? 'English' : 'العربية'}</span>
           </button>
 
-          <button onClick={() => { navigate('/settings'); onClose() }} className="nav-item w-full text-start">
-            <Settings size={18} />
-            <span>{t('settings')}</span>
-          </button>
+          {isAdmin && (
+            <button onClick={() => { navigate('/settings'); onClose() }} className="nav-item w-full text-start">
+              <Settings size={18} />
+              <span>{t('settings')}</span>
+            </button>
+          )}
 
           <button onClick={handleLogout} className="nav-item w-full text-start text-red-400 hover:!bg-red-500/10">
             <LogOut size={18} />
@@ -91,15 +110,15 @@ function Sidebar({ open, onClose }) {
           </button>
         </div>
 
-        {/* User */}
+        {/* User + Role */}
         <div className="px-4 py-3 border-t border-white/10">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
               {user?.email?.[0]?.toUpperCase() || 'U'}
             </div>
             <div className="min-w-0">
-              <div className="text-white text-sm font-medium truncate">{user?.name || user?.email}</div>
-              <div className="text-white/40 text-xs">{lang === 'ar' ? 'مدير النظام' : 'System Admin'}</div>
+              <div className="text-white text-sm font-medium truncate">{user?.username || user?.email}</div>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${badge.color}`}>{badge.label}</span>
             </div>
           </div>
         </div>
@@ -116,7 +135,6 @@ export default function AppShell({ children }) {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="main-content">
-        {/* Top bar */}
         <header className="topbar">
           <button
             onClick={() => setSidebarOpen(true)}
@@ -127,7 +145,6 @@ export default function AppShell({ children }) {
           <div className="flex-1" />
         </header>
 
-        {/* Page content */}
         <main className="p-6">
           <div className="page-enter">
             {children}

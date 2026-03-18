@@ -2,12 +2,19 @@ import { useState, useEffect } from 'react'
 import { Building2, Shield, Key, Globe, Users, Plus, Loader2, Trash2 } from 'lucide-react'
 import { useLang } from '../../contexts/LangContext'
 import { useAuth } from '../../contexts/AuthContext'
-import { usersAPI } from '../../services/api'
 import toast from 'react-hot-toast'
+
+const ROLES = [
+  { id: 'super_admin', labelAr: 'مدير النظام', labelEn: 'Super Admin', color: 'bg-red-100 text-red-700' },
+  { id: 'hr_manager', labelAr: 'مدير HR', labelEn: 'HR Manager', color: 'bg-blue-100 text-blue-700' },
+  { id: 'accountant', labelAr: 'محاسب', labelEn: 'Accountant', color: 'bg-green-100 text-green-700' },
+  { id: 'pos_cashier', labelAr: 'كاشير', labelEn: 'POS Cashier', color: 'bg-yellow-100 text-yellow-700' },
+  { id: 'employee', labelAr: 'موظف', labelEn: 'Employee', color: 'bg-slate-100 text-slate-600' },
+]
 
 function AddUserModal({ onClose, onSave, lang, loading }) {
   const [form, setForm] = useState({
-    username: '', email: '', password: '', first_name: '', last_name: '', is_staff: false,
+    username: '', email: '', password: '', first_name: '', last_name: '', role: 'employee',
   })
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -17,14 +24,13 @@ function AddUserModal({ onClose, onSave, lang, loading }) {
         <h2 className="text-xl font-bold">{lang === 'ar' ? 'إضافة مستخدم' : 'Add User'}</h2>
         <div className="grid grid-cols-2 gap-3">
           <input className="input" placeholder={lang === 'ar' ? 'اسم المستخدم' : 'Username'} value={form.username} onChange={e => set('username', e.target.value)} dir="ltr" />
-          <input className="input" type="email" placeholder={lang === 'ar' ? 'البريد الإلكتروني' : 'Email'} value={form.email} onChange={e => set('email', e.target.value)} dir="ltr" />
+          <input className="input" type="email" placeholder={lang === 'ar' ? 'البريد' : 'Email'} value={form.email} onChange={e => set('email', e.target.value)} dir="ltr" />
           <input className="input" placeholder={lang === 'ar' ? 'الاسم الأول' : 'First Name'} value={form.first_name} onChange={e => set('first_name', e.target.value)} />
           <input className="input" placeholder={lang === 'ar' ? 'اسم العائلة' : 'Last Name'} value={form.last_name} onChange={e => set('last_name', e.target.value)} />
-          <input className="input col-span-2" type="password" placeholder={lang === 'ar' ? 'كلمة المرور (8 أحرف على الأقل)' : 'Password (min 8 chars)'} value={form.password} onChange={e => set('password', e.target.value)} dir="ltr" />
-          <label className="col-span-2 flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={form.is_staff} onChange={e => set('is_staff', e.target.checked)} />
-            {lang === 'ar' ? 'صلاحيات مدير (staff)' : 'Staff / Admin access'}
-          </label>
+          <input className="input col-span-2" type="password" placeholder={lang === 'ar' ? 'كلمة المرور (8+)' : 'Password (8+ chars)'} value={form.password} onChange={e => set('password', e.target.value)} dir="ltr" />
+          <select className="input col-span-2" value={form.role} onChange={e => set('role', e.target.value)}>
+            {ROLES.map(r => <option key={r.id} value={r.id}>{lang === 'ar' ? r.labelAr : r.labelEn}</option>)}
+          </select>
         </div>
         <div className="flex gap-3 justify-end">
           <button className="btn btn-secondary" onClick={onClose}>{lang === 'ar' ? 'إلغاء' : 'Cancel'}</button>
@@ -49,7 +55,7 @@ export default function SettingsPage() {
   const fetchUsers = async () => {
     setLoadingUsers(true)
     try {
-      const res = await usersAPI.getUsers(api)
+      const res = await api.get('/users/')
       setUsers(res.data.results || [])
     } catch (err) { console.error(err) }
     finally { setLoadingUsers(false) }
@@ -60,7 +66,7 @@ export default function SettingsPage() {
   const handleAddUser = async (form) => {
     setSaving(true)
     try {
-      await usersAPI.createUser(api, form)
+      await api.post('/users/', form)
       toast.success(lang === 'ar' ? 'تم إنشاء المستخدم' : 'User created')
       setShowAddUser(false)
       fetchUsers()
@@ -69,29 +75,40 @@ export default function SettingsPage() {
     } finally { setSaving(false) }
   }
 
-  const handleDeleteUser = async (id, username) => {
-    if (!confirm(lang === 'ar' ? `حذف المستخدم ${username}?` : `Delete user ${username}?`)) return
+  const handleChangeRole = async (userId, newRole) => {
     try {
-      await usersAPI.deleteUser(api, id)
-      toast.success(lang === 'ar' ? 'تم حذف المستخدم' : 'User deleted')
+      await api.post(`/users/${userId}/change_role/`, { role: newRole })
+      toast.success(lang === 'ar' ? 'تم تغيير الصلاحية' : 'Role changed')
       fetchUsers()
-    } catch (err) { toast.error('Error deleting user') }
+    } catch (err) { toast.error('Error changing role') }
+  }
+
+  const handleDeleteUser = async (id, username) => {
+    if (!confirm(lang === 'ar' ? `حذف ${username}?` : `Delete ${username}?`)) return
+    try {
+      await api.delete(`/users/${id}/`)
+      toast.success('User deleted')
+      fetchUsers()
+    } catch (err) { toast.error('Error') }
+  }
+
+  const getRoleBadge = (role) => {
+    const r = ROLES.find(x => x.id === role) || ROLES[4]
+    return <span className={`text-xs px-2 py-0.5 rounded-full ${r.color}`}>{lang === 'ar' ? r.labelAr : r.labelEn}</span>
   }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">{lang === 'ar' ? 'الإعدادات' : 'Settings'}</h1>
-        <p className="text-sm text-slate-500">{lang === 'ar' ? 'إعدادات النظام والشركة والمستخدمين' : 'System, company & user settings'}</p>
+        <p className="text-sm text-slate-500">{lang === 'ar' ? 'إدارة المستخدمين والصلاحيات' : 'User management & roles'}</p>
       </div>
 
       {/* User Management */}
       <div className="card">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-              <Users size={20} />
-            </div>
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center"><Users size={20} /></div>
             <h2 className="text-lg font-semibold">{lang === 'ar' ? 'إدارة المستخدمين' : 'User Management'}</h2>
           </div>
           <button onClick={() => setShowAddUser(true)} className="btn btn-primary flex items-center gap-2 text-sm">
@@ -119,9 +136,11 @@ export default function SettingsPage() {
                     <td className="py-2.5 px-2 text-slate-500" dir="ltr">{u.email}</td>
                     <td className="py-2.5 px-2">{u.first_name} {u.last_name}</td>
                     <td className="py-2.5 px-2">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${u.is_staff ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'}`}>
-                        {u.is_staff ? (lang === 'ar' ? 'مدير' : 'Admin') : (lang === 'ar' ? 'مستخدم' : 'User')}
-                      </span>
+                      <select className="text-xs border rounded-lg px-2 py-1 bg-transparent"
+                        value={u.role || 'employee'}
+                        onChange={e => handleChangeRole(u.id, e.target.value)}>
+                        {ROLES.map(r => <option key={r.id} value={r.id}>{lang === 'ar' ? r.labelAr : r.labelEn}</option>)}
+                      </select>
                     </td>
                     <td className="py-2.5 px-2">
                       <span className={`text-xs px-2 py-0.5 rounded-full ${u.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
@@ -130,70 +149,52 @@ export default function SettingsPage() {
                     </td>
                     <td className="py-2.5 px-2">
                       {u.username !== 'admin' && (
-                        <button onClick={() => handleDeleteUser(u.id, u.username)} className="text-red-400 hover:text-red-600">
-                          <Trash2 size={16} />
-                        </button>
+                        <button onClick={() => handleDeleteUser(u.id, u.username)} className="text-red-400 hover:text-red-600"><Trash2 size={16} /></button>
                       )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            {users.length === 0 && <p className="text-center py-6 text-slate-400">{lang === 'ar' ? 'لا يوجد مستخدمون' : 'No users'}</p>}
           </div>
         )}
       </div>
 
-      {/* Company Info */}
+      {/* Role Reference */}
       <div className="card">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
-            <Building2 size={20} />
-          </div>
-          <h2 className="text-lg font-semibold">{lang === 'ar' ? 'معلومات الشركة' : 'Company Information'}</h2>
+          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center"><Key size={20} /></div>
+          <h2 className="text-lg font-semibold">{lang === 'ar' ? 'دليل الصلاحيات' : 'Role Reference'}</h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1">{lang === 'ar' ? 'اسم الشركة' : 'Company Name'}</label>
-            <input className="input" disabled placeholder={lang === 'ar' ? 'متاح من لوحة الإدارة' : 'Available from admin panel'} />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1">{lang === 'ar' ? 'الرقم الضريبي' : 'VAT Number'}</label>
-            <input className="input" disabled placeholder="300000000000003" dir="ltr" />
-          </div>
-        </div>
-      </div>
-
-      {/* ZATCA Settings */}
-      <div className="card">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-green-50 text-green-600 flex items-center justify-center">
-            <Shield size={20} />
-          </div>
-          <h2 className="text-lg font-semibold">{lang === 'ar' ? 'إعدادات ZATCA' : 'ZATCA Settings'}</h2>
-        </div>
-        <div className="flex gap-2">
-          {['sandbox', 'simulation', 'production'].map(env => (
-            <span key={env} className={`px-3 py-1.5 rounded-lg text-sm ${env === 'sandbox' ? 'bg-yellow-100 text-yellow-800 font-medium' : 'bg-slate-100 text-slate-500'}`}>
-              {env}
-            </span>
+        <div className="space-y-2">
+          {ROLES.map(r => (
+            <div key={r.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+              <div className="flex items-center gap-3">
+                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${r.color}`}>{lang === 'ar' ? r.labelAr : r.labelEn}</span>
+              </div>
+              <div className="text-xs text-slate-500">
+                {r.id === 'super_admin' && (lang === 'ar' ? 'كل الصلاحيات' : 'Full access to all modules')}
+                {r.id === 'hr_manager' && (lang === 'ar' ? 'الموارد البشرية + التقارير' : 'HR, Dashboard, Reports')}
+                {r.id === 'accountant' && (lang === 'ar' ? 'المحاسبة + الفواتير + التقارير' : 'Invoicing, Accounting, Reports')}
+                {r.id === 'pos_cashier' && (lang === 'ar' ? 'نقطة البيع فقط' : 'Dashboard, POS only')}
+                {r.id === 'employee' && (lang === 'ar' ? 'خدمة ذاتية: إجازات، كشوف' : 'Self-service: own leave, payslips')}
+              </div>
+            </div>
           ))}
         </div>
       </div>
 
-      {/* System Info */}
+      {/* Company + ZATCA */}
       <div className="card">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
-            <Globe size={20} />
-          </div>
-          <h2 className="text-lg font-semibold">{lang === 'ar' ? 'معلومات النظام' : 'System Info'}</h2>
+          <div className="w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center"><Building2 size={20} /></div>
+          <h2 className="text-lg font-semibold">{lang === 'ar' ? 'معلومات الشركة' : 'Company Info'}</h2>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div><span className="text-slate-500">{lang === 'ar' ? 'الرقم الضريبي' : 'VAT'}</span><div className="font-semibold mt-1" dir="ltr">300000000000003</div></div>
+          <div><span className="text-slate-500">ZATCA</span><div className="font-semibold mt-1">Phase 2 — Sandbox</div></div>
           <div><span className="text-slate-500">{lang === 'ar' ? 'الإصدار' : 'Version'}</span><div className="font-semibold mt-1">1.0.0</div></div>
           <div><span className="text-slate-500">API</span><div className="font-semibold mt-1">/api/</div></div>
-          <div><span className="text-slate-500">ZATCA</span><div className="font-semibold mt-1">Phase 2</div></div>
-          <div><span className="text-slate-500">{lang === 'ar' ? 'المنطقة الزمنية' : 'Timezone'}</span><div className="font-semibold mt-1">Asia/Riyadh</div></div>
         </div>
       </div>
 

@@ -1,65 +1,88 @@
-import { createContext, useContext, useState, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 
-const AuthContext = createContext()
+const AuthContext = createContext(null)
 
-const api = axios.create({ baseURL: '/api' })
-
-api.interceptors.request.use(cfg => {
-  const token = localStorage.getItem('erp_access')
-  if (token) cfg.headers.Authorization = `Bearer ${token}`
-  return cfg
-})
-
-api.interceptors.response.use(
-  r => r,
-  async err => {
-    if (err.response?.status === 401 && !err.config._retry) {
-      err.config._retry = true
-      const refresh = localStorage.getItem('erp_refresh')
-      if (refresh) {
-        try {
-          const { data } = await axios.post('/api/auth/token/refresh/', { refresh })
-          localStorage.setItem('erp_access', data.access)
-          err.config.headers.Authorization = `Bearer ${data.access}`
-          return api(err.config)
-        } catch {
-          localStorage.clear()
-          window.location.href = '/app/login'
-        }
-      }
-    }
-    return Promise.reject(err)
-  }
-)
-
-export { api }
+const BASE = '/api'
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem('erp_user')) } catch { return null }
   })
+  const [tokens, setTokens] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('erp_tokens')) } catch { return null }
+  })
 
-  const login = useCallback(async (username, password) => {
-    const { data } = await axios.post('/api/auth/token/', { username, password })
-    localStorage.setItem('erp_access', data.access)
-    localStorage.setItem('erp_refresh', data.refresh)
-    const me = { username, name: username }
-    localStorage.setItem('erp_user', JSON.stringify(me))
-    setUser(me)
-    return me
+  const api = useRef(axios.create({ baseURL: BASE })).current
+
+  // Attach token to every request
+  useEffect(() => {
+    const interceptor = api.interceptors.request.use(config => {
+      const t = JSON.parse(localStorage.getItem('erp_tokens') || '{}')
+      if (t?.access) config.headers.Authorization = `Bearer ${t.access}`
+      return config
+    })
+    return () => api.interceptors.request.eject(interceptor)
   }, [])
 
-  const logout = useCallback(() => {
-    localStorage.clear()
+  // Auto-refresh on 401
+  useEffect(() => {
+    const interceptor = api.interceptors.response.use(
+      res => res,
+      async err => {
+        const orig = err.config
+        if (err.response?.status === 401 && !orig._retry) {
+          orig._retry = true
+          try {
+            const t = JSON.parse(localStorage.getItem('erp_tokens') || '{}')
+            if (t?.refresh) {
+              const res = await axios.post(`${BASE}/auth/token/refresh/`, { refresh: t.refresh })
+              const newTokens = { ...t, access: res.data.access }
+              localStorage.setItem('erp_tokens', JSON.stringify(newTokens))
+              setTokens(newTokens)
+              orig.headers.Authorization = `Bearer ${res.data.access}`
+              return api(orig)
+            }
+          } catch { logout() }
+        }
+        return Promise.reject(err)
+      }
+    )
+    return () => api.interceptors.response.eject(interceptor)
+  }, [])
+
+  const login = async (username, password) => {
+    const res = await axios.post(`${BASE}/auth/token/`, { username, password })
+    const newTokens = res.data
+    localStorage.setItem('erp_tokens', JSON.stringify(newTokens))
+    setTokens(newTokens)
+
+    // Fetch user profile with role + modules
+    const meRes = await api.get('/users/me/', {
+      headers: { Authorization: `Bearer ${newTokens.access}` }
+    })
+    const userData = meRes.data
+    localStorage.setItem('erp_user', JSON.stringify(userData))
+    setUser(userData)
+    return userData
+  }
+
+  const logout = () => {
+    localStorage.removeItem('erp_tokens')
+    localStorage.removeItem('erp_user')
     setUser(null)
-  }, [])
+    setTokens(null)
+  }
+
+  const isAuthenticated = !!tokens?.access
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, api, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, tokens, api, login, logout, isAuthenticated }}>
       {children}
     </AuthContext.Provider>
   )
 }
 
-export const useAuth = () => useContext(AuthContext)
+export function useAuth() {
+  return useContext(AuthContext)
+}
