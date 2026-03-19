@@ -1,30 +1,26 @@
 # Git
 .git
 .gitignore
+.github
 
 # Python
 __pycache__
-*.py[cod]
+*.pyc
+*.pyo
 *.egg-info
 .eggs
 dist
 build
-.venv
-venv
-env
 .pytest_cache
 htmlcov
 .coverage
+.mypy_cache
+.ruff_cache
 
-# Node (frontend has its own COPY step)
-frontend/node_modules
-
-# Environment / Secrets
-.env
-.env.*
-*.pem
-*.pfx
-*.p12
+# Virtual environments
+.venv
+venv
+env
 
 # IDE
 .vscode
@@ -36,25 +32,27 @@ frontend/node_modules
 .DS_Store
 Thumbs.db
 
+# Node (frontend has its own COPY)
+frontend/node_modules
+
 # Docker
 docker-compose*.yml
-Dockerfile.dev
 
-# Deployment configs (not needed inside container)
-fly.toml
-render.yaml
-nixpacks.toml
-
-# Documentation
+# Docs
+*.docx
 *.md
-docs/
+README.md
+LICENSE
 
 # Backups
 backups/
+*.sql.gz
 
-# Media (mounted as volume)
-media/
+# Certificates
+*.pem
+*.pfx
+*.p12
 
-# Database
-*.sqlite3
-db.sqlite3
+# Environment
+.env
+.env.*
