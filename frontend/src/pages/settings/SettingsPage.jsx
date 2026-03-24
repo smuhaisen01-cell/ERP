@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Building2, Shield, Key, Globe, Users, Plus, Loader2, Trash2, Server } from 'lucide-react'
+import { Building2, Shield, Key, Globe, Users, Plus, Loader2, Trash2, Server, Bot } from 'lucide-react'
 import { useLang } from '../../contexts/LangContext'
 import { useAuth } from '../../contexts/AuthContext'
 import toast from 'react-hot-toast'
@@ -184,6 +184,9 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* AI Backend Configuration */}
+      <AIConfigPanel lang={lang} api={api} />
+
       {/* Company + ZATCA */}
       <div className="card">
         <div className="flex items-center gap-3 mb-4">
@@ -304,6 +307,124 @@ function TenantPanel({ lang, api }) {
           {tenants.length === 0 && <p className="text-center py-6 text-slate-400">{lang === 'ar' ? 'لا توجد شركات' : 'No tenants'}</p>}
         </div>
       )}
+    </div>
+  )
+}
+
+function AIConfigPanel({ lang, api }) {
+  const [config, setConfig] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({ backend: 'anthropic', ollama_url: 'http://localhost:11434', ollama_model: 'command-r:35b', anthropic_api_key: '' })
+
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        const res = await api.get('/ai/status/')
+        setConfig(res.data)
+        setForm(f => ({
+          ...f,
+          backend: res.data.backend || 'anthropic',
+          ollama_url: res.data.ollama_url || 'http://localhost:11434',
+          ollama_model: res.data.ollama_model || 'command-r:35b',
+        }))
+      } catch {}
+      finally { setLoading(false) }
+    }
+    fetch()
+  }, [])
+
+  const switchBackend = async () => {
+    setSaving(true)
+    try {
+      const res = await api.post('/ai/status/', form)
+      toast.success(res.data.message || 'AI backend switched')
+      const statusRes = await api.get('/ai/status/')
+      setConfig(statusRes.data)
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Error switching backend')
+    } finally { setSaving(false) }
+  }
+
+  const s = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  if (loading) return null
+
+  return (
+    <div className="card">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center"><Bot size={20} /></div>
+          <div>
+            <h2 className="text-lg font-semibold">{lang === 'ar' ? 'إعدادات الذكاء الاصطناعي' : 'AI Configuration'}</h2>
+            <p className="text-xs text-slate-400">{lang === 'ar' ? 'التبديل بين Claude السحابي و Ollama المحلي' : 'Switch between Cloud (Claude) and Local (Ollama)'}</p>
+          </div>
+        </div>
+        <span className={`text-xs px-3 py-1 rounded-full ${config?.status === 'connected' ? 'bg-green-100 text-green-700' : config?.status === 'no_api_key' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+          {config?.backend} — {config?.status}
+        </span>
+      </div>
+
+      <div className="flex gap-3 mb-4">
+        <button onClick={() => s('backend', 'anthropic')}
+          className={`flex-1 p-4 rounded-xl border-2 transition-all ${form.backend === 'anthropic' ? 'border-purple-500 bg-purple-50' : 'border-slate-200 hover:border-slate-300'}`}>
+          <div className="font-semibold text-sm">{lang === 'ar' ? '☁️ سحابي — Claude' : '☁️ Cloud — Claude'}</div>
+          <div className="text-xs text-slate-500 mt-1">{lang === 'ar' ? 'يتطلب مفتاح API' : 'Requires API key'}</div>
+          <div className="text-xs text-slate-400 mt-1">claude-sonnet-4-20250514</div>
+        </button>
+        <button onClick={() => s('backend', 'ollama')}
+          className={`flex-1 p-4 rounded-xl border-2 transition-all ${form.backend === 'ollama' ? 'border-purple-500 bg-purple-50' : 'border-slate-200 hover:border-slate-300'}`}>
+          <div className="font-semibold text-sm">{lang === 'ar' ? '🖥️ محلي — Ollama' : '🖥️ Local — Ollama'}</div>
+          <div className="text-xs text-slate-500 mt-1">{lang === 'ar' ? 'بدون إنترنت' : 'No internet needed'}</div>
+          <div className="text-xs text-slate-400 mt-1">{form.ollama_model}</div>
+        </button>
+      </div>
+
+      {form.backend === 'anthropic' ? (
+        <div className="space-y-3 mb-4">
+          <div>
+            <label className="text-sm font-medium text-slate-600 mb-1 block">Anthropic API Key</label>
+            <input className="input" type="password" placeholder="sk-ant-..." dir="ltr"
+              value={form.anthropic_api_key} onChange={e => s('anthropic_api_key', e.target.value)} />
+            <p className="text-xs text-slate-400 mt-1">{lang === 'ar' ? 'اتركه فارغاً لاستخدام متغير البيئة' : 'Leave empty to use env var'}</p>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3 mb-4">
+          <div>
+            <label className="text-sm font-medium text-slate-600 mb-1 block">Ollama URL</label>
+            <input className="input" placeholder="http://localhost:11434" dir="ltr"
+              value={form.ollama_url} onChange={e => s('ollama_url', e.target.value)} />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-600 mb-1 block">Model</label>
+            <select className="input" value={form.ollama_model} onChange={e => s('ollama_model', e.target.value)}>
+              <option value="command-r:35b">Command-R 35B</option>
+              <option value="llama3:8b">Llama 3 8B</option>
+              <option value="llama3:70b">Llama 3 70B</option>
+              <option value="mistral:7b">Mistral 7B</option>
+              <option value="qwen2:7b">Qwen2 7B</option>
+              <option value="gemma2:9b">Gemma2 9B</option>
+            </select>
+          </div>
+          <div className="bg-blue-50 rounded-lg p-3 text-xs text-blue-700">
+            <span className="font-semibold">{lang === 'ar' ? 'ملاحظة:' : 'Setup:'}</span>{' '}
+            ollama serve && ollama pull {form.ollama_model}
+          </div>
+        </div>
+      )}
+
+      <button onClick={switchBackend} disabled={saving}
+        className="btn btn-primary flex items-center gap-2">
+        {saving ? <Loader2 size={16} className="animate-spin" /> : null}
+        {lang === 'ar' ? 'حفظ وتطبيق' : 'Save & Apply'}
+      </button>
+
+      <p className="text-xs text-slate-400 mt-3">
+        {lang === 'ar'
+          ? 'التغيير مؤقت — لتغيير دائم عدّل AI_BACKEND في Railway'
+          : 'Temporary until redeploy — set AI_BACKEND env var for permanent'}
+      </p>
     </div>
   )
 }

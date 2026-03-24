@@ -246,11 +246,13 @@ class AIStatusView(APIView):
 
         backend = getattr(settings, 'AI_BACKEND', 'not_configured')
         has_key = bool(getattr(settings, 'ANTHROPIC_API_KEY', ''))
+        ollama_url = getattr(settings, 'OLLAMA_BASE_URL', '')
+        ollama_model = getattr(settings, 'OLLAMA_MODEL', '')
 
-        status = "ready" if has_key else "no_api_key"
-
-        # Test connection
-        if has_key:
+        status = "ready"
+        if backend == "anthropic" and not has_key:
+            status = "no_api_key"
+        elif backend == "anthropic" and has_key:
             try:
                 llm = LLMClientFactory.get()
                 llm.complete("Test", [{"role": "user", "content": "Hi"}], max_tokens=5)
@@ -262,5 +264,38 @@ class AIStatusView(APIView):
             "backend": backend,
             "status": status,
             "has_api_key": has_key,
-            "model": getattr(settings, 'ANTHROPIC_MODEL', 'not_set'),
+            "model": getattr(settings, 'ANTHROPIC_MODEL', 'not_set') if backend == 'anthropic' else ollama_model,
+            "ollama_url": ollama_url,
+            "ollama_model": ollama_model,
+        })
+
+    def post(self, request):
+        """Switch AI backend. Only super_admin can do this."""
+        from django.conf import settings
+
+        if not request.user.is_superuser:
+            return Response({"error": "Only super admin can change AI settings"}, status=403)
+
+        new_backend = request.data.get("backend")
+        if new_backend not in ("anthropic", "ollama"):
+            return Response({"error": "backend must be 'anthropic' or 'ollama'"}, status=400)
+
+        # Update settings in memory (persists until restart)
+        settings.AI_BACKEND = new_backend
+
+        # Update optional fields
+        if request.data.get("ollama_url"):
+            settings.OLLAMA_BASE_URL = request.data["ollama_url"]
+        if request.data.get("ollama_model"):
+            settings.OLLAMA_MODEL = request.data["ollama_model"]
+        if request.data.get("anthropic_api_key"):
+            settings.ANTHROPIC_API_KEY = request.data["anthropic_api_key"]
+
+        # Reset LLM client so it picks up new settings
+        LLMClientFactory.reset()
+
+        return Response({
+            "status": "switched",
+            "backend": new_backend,
+            "message": f"AI backend switched to {new_backend}. Note: this resets on redeploy — set AI_BACKEND env var for permanent change."
         })
