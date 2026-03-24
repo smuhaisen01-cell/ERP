@@ -10,6 +10,7 @@ const translations = {
     accounting: 'المحاسبة',
     inventory: 'المخزون',
     reports: 'التقارير',
+    ai: 'الذكاء الاصطناعي',
     settings: 'الإعدادات',
     logout: 'تسجيل الخروج',
 
@@ -24,6 +25,7 @@ const translations = {
     quickActions: 'إجراءات سريعة',
     newInvoice: 'فاتورة جديدة',
     runPayroll: 'معالجة الرواتب',
+    vatReturn: 'إقرار ضريبي',
 
     // Auth
     signIn: 'تسجيل الدخول',
@@ -95,6 +97,7 @@ const translations = {
     accounting: 'Accounting',
     inventory: 'Inventory',
     reports: 'Reports',
+    ai: 'AI Platform',
     settings: 'Settings',
     logout: 'Sign Out',
 
@@ -109,6 +112,7 @@ const translations = {
     quickActions: 'Quick Actions',
     newInvoice: 'New Invoice',
     runPayroll: 'Run Payroll',
+    vatReturn: 'VAT Return',
 
     // Auth
     signIn: 'Sign In',

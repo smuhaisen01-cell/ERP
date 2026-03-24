@@ -1,10 +1,14 @@
 from django.urls import path
-from django.http import JsonResponse
-from django.utils import timezone
-
-def ai_health(request):
-    return JsonResponse({"status": "ok", "service": "ai-platform", "timestamp": timezone.now().isoformat()})
+from .views import (
+    CopilotChatView, DashboardQAView, SmartAlertsView,
+    ForecastView, AutoCategorizeView, AIStatusView,
+)
 
 urlpatterns = [
-    path("health/", ai_health, name="ai_health"),
+    path("chat/", CopilotChatView.as_view(), name="ai-chat"),
+    path("dashboard-qa/", DashboardQAView.as_view(), name="ai-dashboard-qa"),
+    path("alerts/", SmartAlertsView.as_view(), name="ai-alerts"),
+    path("forecast/", ForecastView.as_view(), name="ai-forecast"),
+    path("categorize/", AutoCategorizeView.as_view(), name="ai-categorize"),
+    path("status/", AIStatusView.as_view(), name="ai-status"),
 ]

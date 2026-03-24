@@ -3,7 +3,7 @@ import { useState } from 'react'
 import {
   LayoutDashboard, FileText, ShoppingCart, Users,
   BookOpen, Package, Settings, LogOut, Menu, X,
-  Building2, Globe, FileBarChart
+  Building2, Globe, FileBarChart, Sparkles
 } from 'lucide-react'
 import { useLang } from '../../contexts/LangContext'
 import { useAuth } from '../../contexts/AuthContext'
@@ -16,6 +16,7 @@ const NAV = [
   { key: 'accounting', icon: BookOpen,          path: '/accounting', module: 'accounting' },
   { key: 'inventory',  icon: Package,           path: '/inventory',  module: 'inventory' },
   { key: 'reports',    icon: FileBarChart,      path: '/reports',    module: 'reports' },
+  { key: 'ai',         icon: Sparkles,          path: '/ai',         module: 'dashboard' },
 ]
 
 // hr_self employees can see HR (limited) but label it differently
