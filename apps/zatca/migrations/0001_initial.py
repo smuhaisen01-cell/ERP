@@ -1,0 +1,76 @@
+from django.conf import settings
+from django.db import migrations, models
+import django.db.models.deletion
+import uuid
+
+class Migration(migrations.Migration):
+    initial = True
+    dependencies = [migrations.swappable_dependency(settings.AUTH_USER_MODEL)]
+    operations = [
+        migrations.CreateModel(name='TaxInvoice', fields=[
+            ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False)),
+            ('uuid', models.UUIDField(default=uuid.uuid4, editable=False, unique=True)),
+            ('invoice_number', models.CharField(max_length=50, unique=True)),
+            ('invoice_type', models.CharField(max_length=3)),
+            ('invoice_type_code', models.CharField(default='0100000', max_length=10)),
+            ('issue_date', models.DateField()),
+            ('issue_time', models.TimeField()),
+            ('hijri_date', models.CharField(blank=True, default='', max_length=20)),
+            ('buyer_name_ar', models.CharField(blank=True, default='', max_length=255)),
+            ('buyer_vat_number', models.CharField(blank=True, default='', max_length=15)),
+            ('buyer_cr_number', models.CharField(blank=True, default='', max_length=20)),
+            ('buyer_address', models.TextField(blank=True, default='')),
+            ('subtotal', models.DecimalField(decimal_places=2, max_digits=18)),
+            ('discount_total', models.DecimalField(decimal_places=2, default=0, max_digits=18)),
+            ('taxable_amount', models.DecimalField(decimal_places=2, max_digits=18)),
+            ('vat_amount', models.DecimalField(decimal_places=2, max_digits=18)),
+            ('total_amount', models.DecimalField(decimal_places=2, max_digits=18)),
+            ('invoice_hash', models.CharField(blank=True, default='', max_length=64)),
+            ('previous_hash', models.CharField(blank=True, default='', max_length=64)),
+            ('digital_signature', models.TextField(blank=True, default='')),
+            ('qr_code_tlv', models.TextField(blank=True, default='')),
+            ('signed_xml', models.TextField(blank=True, default='')),
+            ('zatca_status', models.CharField(default='pending', max_length=15)),
+            ('zatca_response_code', models.CharField(blank=True, default='', max_length=10)),
+            ('zatca_response_message', models.TextField(blank=True, default='')),
+            ('zatca_cleared_at', models.DateTimeField(blank=True, null=True)),
+            ('zatca_submission_attempts', models.SmallIntegerField(default=0)),
+            ('zatca_uuid', models.UUIDField(blank=True, null=True)),
+            ('is_cancelled', models.BooleanField(default=False)),
+            ('created_by', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to=settings.AUTH_USER_MODEL)),
+            ('created_at', models.DateTimeField(auto_now_add=True)),
+        ]),
+        migrations.CreateModel(name='TaxInvoiceLine', fields=[
+            ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False)),
+            ('line_number', models.SmallIntegerField()),
+            ('description_ar', models.CharField(max_length=500)),
+            ('description_en', models.CharField(blank=True, default='', max_length=500)),
+            ('quantity', models.DecimalField(decimal_places=4, max_digits=12)),
+            ('unit', models.CharField(default='EA', max_length=20)),
+            ('unit_price', models.DecimalField(decimal_places=4, max_digits=18)),
+            ('discount_amount', models.DecimalField(decimal_places=2, default=0, max_digits=18)),
+            ('line_total', models.DecimalField(decimal_places=2, max_digits=18)),
+            ('vat_rate', models.DecimalField(decimal_places=2, default=15, max_digits=5)),
+            ('vat_amount', models.DecimalField(decimal_places=2, max_digits=18)),
+            ('vat_category_code', models.CharField(default='S', max_length=5)),
+            ('invoice', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='lines', to='zatca.taxinvoice')),
+        ]),
+        migrations.CreateModel(name='ZATCAInvoiceLog', fields=[
+            ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False)),
+            ('invoice_hash', models.CharField(max_length=64)),
+            ('action', models.CharField(max_length=20)),
+            ('status_code', models.CharField(blank=True, max_length=10)),
+            ('response_body', models.TextField(blank=True)),
+            ('created_at', models.DateTimeField(auto_now_add=True)),
+            ('invoice', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='logs', to='zatca.taxinvoice')),
+        ]),
+        migrations.CreateModel(name='TenantZATCACredential', fields=[
+            ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False)),
+            ('terminal_id', models.CharField(max_length=50)),
+            ('csid', models.TextField(blank=True)),
+            ('private_key_encrypted', models.TextField(blank=True)),
+            ('csid_expires_at', models.DateTimeField(blank=True, null=True)),
+            ('is_active', models.BooleanField(default=True)),
+            ('created_at', models.DateTimeField(auto_now_add=True)),
+        ]),
+    ]

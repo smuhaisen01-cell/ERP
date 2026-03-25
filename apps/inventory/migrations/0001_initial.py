@@ -1,0 +1,75 @@
+from django.conf import settings
+from django.db import migrations, models
+import django.db.models.deletion
+
+class Migration(migrations.Migration):
+    initial = True
+    dependencies = [migrations.swappable_dependency(settings.AUTH_USER_MODEL)]
+    operations = [
+        migrations.CreateModel(name='ProductCategory', fields=[
+            ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False)),
+            ('name_ar', models.CharField(max_length=100)),
+            ('name_en', models.CharField(max_length=100)),
+            ('parent', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='children', to='inventory.productcategory')),
+            ('is_active', models.BooleanField(default=True)),
+        ]),
+        migrations.CreateModel(name='Product', fields=[
+            ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False)),
+            ('sku', models.CharField(max_length=50, unique=True)),
+            ('barcode', models.CharField(blank=True, default='', max_length=50)),
+            ('name_ar', models.CharField(max_length=255)),
+            ('name_en', models.CharField(max_length=255)),
+            ('description_ar', models.TextField(blank=True, default='')),
+            ('description_en', models.TextField(blank=True, default='')),
+            ('category', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='inventory.productcategory')),
+            ('product_type', models.CharField(default='goods', max_length=15)),
+            ('cost_price', models.DecimalField(decimal_places=2, default=0, max_digits=12)),
+            ('selling_price', models.DecimalField(decimal_places=2, default=0, max_digits=12)),
+            ('vat_inclusive', models.BooleanField(default=False)),
+            ('unit', models.CharField(default='EA', max_length=20)),
+            ('is_trackable', models.BooleanField(default=True)),
+            ('reorder_level', models.DecimalField(decimal_places=2, default=0, max_digits=12)),
+            ('reorder_quantity', models.DecimalField(decimal_places=2, default=0, max_digits=12)),
+            ('min_stock', models.DecimalField(decimal_places=2, default=0, max_digits=12)),
+            ('max_stock', models.DecimalField(decimal_places=2, default=0, max_digits=12)),
+            ('revenue_account_code', models.CharField(default='4100', max_length=10)),
+            ('cogs_account_code', models.CharField(default='5100', max_length=10)),
+            ('inventory_account_code', models.CharField(default='1140', max_length=10)),
+            ('is_active', models.BooleanField(default=True)),
+            ('created_at', models.DateTimeField(auto_now_add=True)),
+            ('updated_at', models.DateTimeField(auto_now=True)),
+        ]),
+        migrations.CreateModel(name='Warehouse', fields=[
+            ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False)),
+            ('code', models.CharField(max_length=20, unique=True)),
+            ('name_ar', models.CharField(max_length=100)),
+            ('name_en', models.CharField(max_length=100)),
+            ('city', models.CharField(default='Riyadh', max_length=50)),
+            ('address', models.TextField(blank=True, default='')),
+            ('is_active', models.BooleanField(default=True)),
+            ('is_default', models.BooleanField(default=False)),
+        ]),
+        migrations.CreateModel(name='StockLevel', fields=[
+            ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False)),
+            ('quantity', models.DecimalField(decimal_places=2, default=0, max_digits=12)),
+            ('reserved', models.DecimalField(decimal_places=2, default=0, max_digits=12)),
+            ('last_counted_at', models.DateTimeField(blank=True, null=True)),
+            ('product', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='stock_levels', to='inventory.product')),
+            ('warehouse', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='stock_levels', to='inventory.warehouse')),
+        ], options={'unique_together': {('product', 'warehouse')}}),
+        migrations.CreateModel(name='StockMovement', fields=[
+            ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False)),
+            ('movement_number', models.CharField(max_length=50, unique=True)),
+            ('movement_type', models.CharField(max_length=15)),
+            ('quantity', models.DecimalField(decimal_places=2, max_digits=12)),
+            ('unit_cost', models.DecimalField(decimal_places=2, default=0, max_digits=12)),
+            ('total_cost', models.DecimalField(decimal_places=2, default=0, max_digits=18)),
+            ('reference', models.CharField(blank=True, default='', max_length=100)),
+            ('notes', models.TextField(blank=True, default='')),
+            ('created_at', models.DateTimeField(auto_now_add=True)),
+            ('product', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='movements', to='inventory.product')),
+            ('warehouse', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='movements', to='inventory.warehouse')),
+            ('to_warehouse', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='incoming_movements', to='inventory.warehouse')),
+            ('created_by', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to=settings.AUTH_USER_MODEL)),
+        ]),
+    ]
