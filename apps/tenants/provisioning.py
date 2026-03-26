@@ -198,7 +198,15 @@ def signup(request):
 
 
 def _get_base_domain(request):
+    """Extract base domain. Prefers custom domain over Railway URL."""
     host = request.get_host().split(":")[0]
+    # Check if a custom domain exists for the current tenant
+    from .models import Domain
+    custom = Domain.objects.filter(domain__regex=r'^[^.]+\.[^.]+\.[^.]+$').exclude(domain__contains='railway.app').first()
+    if custom:
+        parts = custom.domain.split(".")
+        return ".".join(parts[-2:])  # e.g., kany.sa
+    # Fallback to request host
     if "railway.app" in host:
         return host
     parts = host.split(".")
