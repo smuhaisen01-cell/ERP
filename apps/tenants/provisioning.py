@@ -59,7 +59,7 @@ class SignupSerializer(serializers.Serializer):
     company_name_ar = serializers.CharField(max_length=255)
     company_name_en = serializers.CharField(max_length=255)
     vat_number = serializers.CharField(max_length=15)
-    cr_number = serializers.CharField(max_length=20, required=False, default="")
+    cr_number = serializers.CharField(max_length=20, required=False, default="", allow_blank=True)
     city = serializers.CharField(max_length=100, default="Riyadh")
     admin_username = serializers.CharField(max_length=150)
     admin_email = serializers.EmailField()
@@ -130,14 +130,13 @@ def signup(request):
         # ── Step 5: Create admin user ──
         connection.set_schema(tenant.schema_name)
 
-        admin_user = User(
+        admin_user = User.objects.create_user(
             username=data["admin_username"],
             email=data["admin_email"],
+            password=data["admin_password"],
             is_staff=True,
             is_superuser=True,
         )
-        admin_user.set_password(data["admin_password"])
-        admin_user.save()
         logger.info(f"[SIGNUP] Admin user created: {data['admin_username']}")
 
         # ── Step 6: Create RBAC profile ──
@@ -631,6 +630,7 @@ class TenantViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def change_plan(self, request, pk=None):
         tenant = self.get_object()
+
         plan = request.data.get("plan")
         limits = {
             "starter": {"max_users": 5, "max_invoices_per_month": 300, "max_pos_terminals": 1},
