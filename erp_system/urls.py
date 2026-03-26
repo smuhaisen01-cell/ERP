@@ -6,6 +6,7 @@ SPA is served at /app/ via a catch-all that serves index.html.
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
+from django.shortcuts import redirect
 from django.utils import timezone
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 import django.db
@@ -43,6 +44,7 @@ def api_root(request):
 urlpatterns = [
     # ─── Health ───────────────────────────────────────────────
     path("health/", health_check, name="health_root"),
+    path("", lambda request: redirect("/app/", permanent=False)),
     path("app/health/", health_check, name="health"),
 
     # ─── Public API (no tenant resolution) ──────────────────
@@ -67,5 +69,6 @@ urlpatterns = [
     path("admin/", admin.site.urls),
 
     # ─── React SPA (catch-all — must be last) ─────────────────
+    path("", lambda request: redirect("/app/", permanent=False)),
     path("app/", include("apps.tenants.spa_urls")),
 ]
