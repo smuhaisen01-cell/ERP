@@ -131,13 +131,14 @@ def signup(request):
         # Step 5: Create admin user in new schema
         connection.set_schema(tenant.schema_name)
 
-        admin_user = User.objects.create_user(
+        admin_user = User(
             username=data["admin_username"],
             email=data["admin_email"],
-            password=data["admin_password"],
             is_staff=True,
             is_superuser=True,
         )
+        admin_user.set_password(data["admin_password"])
+        admin_user.save()
 
         # Step 6: Create RBAC profile
         try:
